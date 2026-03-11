@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "simpleat",
-    "slug": "simpleat",
+    "name": "Simpleat",
+    "slug": "Simpleat",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -38,19 +38,11 @@
             "backgroundColor": "#000000"
           }
         }
-      ],
-      "expo-web-browser"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "f8ed5d8e-de0a-47f0-a7c0-df98857974fd"
-      }
-    },
-    "owner": "octave98"
+    }
   }
 }
