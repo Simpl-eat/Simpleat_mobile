@@ -1,7 +1,9 @@
+import { router } from 'expo-router';
 import { useMemo } from 'react';
 import {
   ActivityIndicator,
   Button,
+  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -47,10 +49,19 @@ export default function RecipesDebugScreen() {
       {!isLoading && !error ? (
         <ScrollView contentContainerStyle={styles.list}>
           {(recipes ?? []).map((recipe) => (
-            <View key={recipe.id} style={styles.card}>
+            <Pressable
+              key={recipe.id}
+              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/(protected)/receipe/[id]',
+                  params: { id: String(recipe.id) },
+                })
+              }>
               <ThemedText type="subtitle">{recipe.name ?? 'Sans nom'}</ThemedText>
               <ThemedText>ID: {recipe.id}</ThemedText>
-            </View>
+              <ThemedText type="link">Voir la recette</ThemedText>
+            </Pressable>
           ))}
         </ScrollView>
       ) : null}
@@ -91,5 +102,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     gap: 4,
+  },
+  cardPressed: {
+    opacity: 0.7,
   },
 });
