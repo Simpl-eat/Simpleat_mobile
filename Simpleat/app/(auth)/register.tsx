@@ -16,6 +16,20 @@ import {
 
 import { supabase } from '@/lib/supabase';
 
+function formatRegisterError(message: string) {
+  const m = message.toLowerCase();
+  if (m.includes('already registered') || m.includes('already exists')) {
+    return 'Cet email est deja utilise.';
+  }
+  if (m.includes('password')) {
+    return 'Le mot de passe est invalide.';
+  }
+  if (m.includes('email')) {
+    return 'L email fourni est invalide.';
+  }
+  return 'Impossible de creer le compte. Reessaie.';
+}
+
 export default function RegisterScreen() {
   const router = useRouter();
   const isDark = useColorScheme() === 'dark';
@@ -48,7 +62,17 @@ export default function RegisterScreen() {
         email: email.trim(),
         password,
       });
-      if (authError) throw authError;
+      if (authError) {
+        setErrorMessage(formatRegisterError(authError.message));
+        return;
+      }
+
+      // Supabase peut retourner session=null sans erreur pour un email deja existant.
+      const emailAlreadyUsed = data.user?.identities?.length === 0;
+      if (emailAlreadyUsed) {
+        setErrorMessage('Cet email est deja utilise. Connecte-toi ou utilise un autre email.');
+        return;
+      }
 
       if (!data.session) {
         router.replace({
@@ -60,7 +84,9 @@ export default function RegisterScreen() {
 
       router.replace('/home');
     } catch (e: unknown) {
-      setErrorMessage(e instanceof Error ? e.message : String(e));
+      setErrorMessage(
+        e instanceof Error ? formatRegisterError(e.message) : 'Une erreur est survenue.',
+      );
     } finally {
       setLoading(false);
     }
