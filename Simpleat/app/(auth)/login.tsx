@@ -1,5 +1,5 @@
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,47 +11,60 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
-} from "react-native";
-import { supabase } from "../../lib/supabase";
+} from 'react-native';
+
+import { supabase } from '@/lib/supabase';
 
 function formatAuthError(message: string) {
   const m = message.toLowerCase();
-  if (m.includes("invalid login credentials")) return "Identifiants invalides.";
-  if (m.includes("email not confirmed"))
-    return "Email non confirmé. Vérifie ta boîte mail.";
+  if (m.includes('invalid login credentials')) return 'Identifiants invalides.';
+  if (m.includes('email not confirmed'))
+    return 'Email non confirmé. Vérifie ta boîte mail.';
   if (
-    m.includes("missing email") ||
-    m.includes("email") ||
-    m.includes("password")
+    m.includes('missing email') ||
+    m.includes('email') ||
+    m.includes('password')
   )
-    return "Email ou mot de passe incorrect.";
-  return "Impossible de se connecter. Réessaie.";
+    return 'Email ou mot de passe incorrect.';
+  return 'Impossible de se connecter. Réessaie.';
 }
 
 export default function LoginScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ registered?: string }>();
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const isDark = colorScheme === 'dark';
   const colors = {
-    background: isDark ? "#000" : "#fff",
-    text: isDark ? "#fff" : "#111",
-    muted: isDark ? "#A1A1AA" : "#666",
-    border: isDark ? "#2A2A2A" : "#ddd",
-    inputBg: isDark ? "#0B0B0B" : "#fff",
-    primary: "#4CAF50",
+    background: isDark ? '#000' : '#fff',
+    text: isDark ? '#fff' : '#111',
+    muted: isDark ? '#A1A1AA' : '#666',
+    border: isDark ? '#2A2A2A' : '#ddd',
+    inputBg: isDark ? '#0B0B0B' : '#fff',
+    primary: '#4CAF50',
+    infoBg: isDark ? '#14532d' : '#e8f5e9',
+    infoText: isDark ? '#bbf7d0' : '#1b5e20',
   };
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const canSubmit = !loading && email.trim().length > 0 && password.length > 0;
 
+  useEffect(() => {
+    if (params.registered === '1') {
+      setInfoMessage(
+        'Un email de vérification a été envoyé. Merci de confirmer ton adresse puis de te connecter.',
+      );
+    }
+  }, [params.registered]);
+
   async function handleLogin() {
     if (!canSubmit) {
-      setErrorMessage("Renseigne ton email et ton mot de passe.");
+      setErrorMessage('Renseigne ton email et ton mot de passe.');
       return;
     }
 
@@ -71,15 +84,15 @@ export default function LoginScreen() {
 
       if (!data.session) {
         setErrorMessage(
-          "Connexion réussie, mais session introuvable. Réessaie.",
+          'Connexion réussie, mais session introuvable. Réessaie.',
         );
         return;
       }
 
-      router.replace("/(tabs)");
+      router.replace('/home');
     } catch (error: unknown) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Une erreur est survenue.",
+        error instanceof Error ? error.message : 'Une erreur est survenue.',
       );
     } finally {
       setLoading(false);
@@ -89,7 +102,7 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.screen, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -98,8 +111,16 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <Text style={[styles.title, { color: colors.text }]}>Connexion</Text>
           <Text style={[styles.subtitle, { color: colors.muted }]}>
-            Connecte-toi à ton compte Simpl’eat
+            Connecte-toi à ton compte Simpl&apos;eat
           </Text>
+
+          {infoMessage ? (
+            <View style={[styles.infoBox, { backgroundColor: colors.infoBg }]}>
+              <Text style={[styles.infoText, { color: colors.infoText }]}>
+                {infoMessage}
+              </Text>
+            </View>
+          ) : null}
 
           {errorMessage ? (
             <View style={[styles.errorBox, { borderColor: colors.border }]}>
@@ -170,12 +191,12 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push("/register" as any)}
+            onPress={() => router.push('/register')}
             disabled={loading}
             style={styles.linkButton}
           >
             <Text style={[styles.linkText, { color: colors.muted }]}>
-              Pas de compte ?{" "}
+              Pas de compte ?{' '}
               <Text style={[styles.linkTextStrong, { color: colors.text }]}>
                 Créer un compte
               </Text>
@@ -193,7 +214,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
+    justifyContent: 'center',
     padding: 20,
   },
   card: {
@@ -203,13 +224,21 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: "700",
-    textAlign: "center",
+    fontWeight: '700',
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
-    textAlign: "center",
+    textAlign: 'center',
     marginBottom: 6,
+  },
+  infoBox: {
+    borderRadius: 12,
+    padding: 12,
+  },
+  infoText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   errorBox: {
     borderWidth: 1,
@@ -224,7 +253,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   input: {
     borderWidth: 1,
@@ -237,24 +266,24 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: "center",
+    alignItems: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: "#fff",
-    fontWeight: "700",
+    color: '#fff',
+    fontWeight: '700',
     fontSize: 16,
   },
   linkButton: {
     paddingVertical: 6,
-    alignItems: "center",
+    alignItems: 'center',
   },
   linkText: {
     fontSize: 14,
   },
   linkTextStrong: {
-    fontWeight: "700",
+    fontWeight: '700',
   },
 });
