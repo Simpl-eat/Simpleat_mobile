@@ -33,7 +33,9 @@ export default function TabLayout() {
       <Tabs.Screen
         name="(protected)"
         options={{
-          href: null,
+          title: 'Recette',
+          href: '/(tabs)/(protected)/receipe',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
         }}
       />
     </Tabs>
