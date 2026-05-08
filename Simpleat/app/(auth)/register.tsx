@@ -85,12 +85,21 @@ export default function RegisterScreen() {
             const { data, error: authError } = await supabase.auth.signUp({ email, password });
             if (authError) throw authError;
 
+            if (!data.session) {
+                setErrorMessage(
+                    "Compte créé. Vérifie ton email puis connecte-toi pour terminer la création du profil."
+                );
+                router.replace("/login");
+                return;
+            }
+
             if (data.user) {
                 const { error: dbError } = await supabase.from('profile').insert([{
-                    id: data.user.id,
+                    user_id: data.user.id,
                     pseudo: pseudo,
                     diet: selectedDiet,
-                    goal: selectedGoal
+                    goal: selectedGoal,
+                    role: "user"
                 }]);
                 if (dbError) throw dbError;
             }
