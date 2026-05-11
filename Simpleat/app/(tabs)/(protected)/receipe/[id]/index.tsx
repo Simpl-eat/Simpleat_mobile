@@ -74,7 +74,7 @@ export default function RecipeDetailScreen() {
   }
 
   const stepLines = formatStepLines(recipe.step);
-  const ingredientLines = formatDescriptionLines(recipe.description);
+  const ingredientLines = formatDescriptionLines(recipe.description_fr);
   const timeLabel = ["Préparation", "Cuisson", "Temps total"].map((label, index) => [label, recipe.preparation_time, recipe.cook_time, recipe.total_time][index])
     .filter(Boolean)
     .join(' • ') || null;
@@ -95,7 +95,7 @@ export default function RecipeDetailScreen() {
 
       <View style={styles.card}>
         <ThemedText type="title" style={styles.title}>
-          {recipe.name ?? 'Recette'}
+          {recipe.name_fr ?? 'Recette'}
         </ThemedText>
 
         <View style={styles.nutritionRow}>

@@ -1,23 +1,30 @@
 /**
  * Table: public.recipe
- * Colonnes renvoyées en minuscules par Postgres (ex: vegetarian, lunch_type, ia_genereted).
+ * Colonnes alignées sur Postgres (noms en snake_case côté client Supabase).
  */
 export type Recipe = {
   id: number;
   name: string;
-  description: string | null;
   note: number | null;
-  deleted_at: string | null; // ISO timestamp with time zone
-  preparation_time: string | null; // interval (ex: "00:30:00")
+  description: string | null;
+  step: string;
+  image: string | null;
+  str_category: string | null;
+  str_area: string | null;
+  name_fr: string | null;
+  description_fr: string | null;
+  step_fr: string | null;
+  /** interval Postgres → chaîne côté client */
+  preparation_time: string | null;
   cook_time: string | null;
   total_time: string | null;
-  step: string;
-  vegetarian: boolean;
-  vegan: boolean;
-  keto: boolean;
-  dukan: boolean;
-  mediterranean: boolean;
-  carnivore: boolean;
-  lunch_type: string;
-  ia_genereted: boolean | null;
+  vegetarian: boolean | null;
+  vegan: boolean | null;
+  keto: boolean | null;
+  dukan: boolean | null;
+  mediterranean: boolean | null;
+  carnivore: boolean | null;
+  lunch_type: string | null;
+  /** Colonne SQL `date` */
+  deleted_at: string | null;
 };

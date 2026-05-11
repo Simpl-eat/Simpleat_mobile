@@ -58,7 +58,7 @@ export default function SuggestionsScreen() {
                   params: { id: String(recipe.id) },
                 })
               }>
-              <ThemedText type="subtitle">{recipe.name ?? 'Sans nom'}</ThemedText>
+              <ThemedText type="subtitle">{recipe.name_fr ?? 'Sans nom'}</ThemedText>
               <ThemedText>ID: {recipe.id}</ThemedText>
               <ThemedText type="link">Voir la recette</ThemedText>
             </Pressable>

@@ -234,7 +234,7 @@ export default function MaCuisineScreen() {
             renderItem={({ item }) => (
               <View style={styles.ingredientRow}>
                 <View style={styles.ingredientInfo}>
-                  <ThemedText style={styles.whiteText}>{item.name}</ThemedText>
+                  <ThemedText style={styles.whiteText}>{item.name_fr}</ThemedText>
                   <TextInput
                     value={quantities[item.id] ?? ''}
                     onChangeText={(value) => setQuantity(item.id, value)}
