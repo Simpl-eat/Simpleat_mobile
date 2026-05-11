@@ -55,7 +55,11 @@ export default function OnboardingStep2Screen() {
       const { data: isAvailable, error } = await supabase.rpc('is_pseudo_available', {
         p_pseudo: trimmed,
       });
-      
+
+      if (requestIdRef.current !== currentRequestId) {
+        return;
+      }
+
       if (error) {
         setCheckStatus('error');
         setCheckMessage('Impossible de vérifier le pseudo pour le moment.');

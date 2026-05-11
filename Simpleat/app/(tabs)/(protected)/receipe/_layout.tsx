@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 
 /**
  * Layout du segment receipe : Stack sans header par défaut.
- * L’enfant réel est le dossier [id], pas "index".
+ * Liste des suggestions : écran `suggestions` (onglet). Ce stack ne contient que la fiche `[id]`.
  */
 export default function RecipeLayout() {
   return (

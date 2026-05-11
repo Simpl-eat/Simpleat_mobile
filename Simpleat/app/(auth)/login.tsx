@@ -89,7 +89,7 @@ export default function LoginScreen() {
         return;
       }
 
-      router.replace('/home');
+      router.replace('/suggestions');
     } catch (error: unknown) {
       setErrorMessage(
         error instanceof Error ? error.message : 'Une erreur est survenue.',

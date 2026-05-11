@@ -82,7 +82,7 @@ export default function RegisterScreen() {
         return;
       }
 
-      router.replace('/home');
+      router.replace('/suggestions');
     } catch (e: unknown) {
       setErrorMessage(
         e instanceof Error ? formatRegisterError(e.message) : 'Une erreur est survenue.',

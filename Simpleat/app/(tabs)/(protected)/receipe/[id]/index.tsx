@@ -33,6 +33,16 @@ export default function RecipeDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { recipe, error, isLoading, refetch } = useRecipe(id);
 
+  const nutritionItems = useMemo(
+    () => [
+      { label: 'lipides', value: '--g', color: '#F5D90A' },
+      { label: 'proteines', value: '--g', color: '#FF6D6D' },
+      { label: 'glucides', value: '--g', color: '#F9AB24' },
+      { label: 'fibres', value: '--g', color: '#3F6E3C' },
+    ],
+    []
+  );
+
   async function onRefresh() {
     setRefreshing(true);
     await refetch();
@@ -68,16 +78,6 @@ export default function RecipeDetailScreen() {
   const timeLabel = ["Préparation", "Cuisson", "Temps total"].map((label, index) => [label, recipe.preparation_time, recipe.cook_time, recipe.total_time][index])
     .filter(Boolean)
     .join(' • ') || null;
-
-  const nutritionItems = useMemo(
-    () => [
-      { label: 'lipides', value: '--g', color: '#F5D90A' },
-      { label: 'proteines', value: '--g', color: '#FF6D6D' },
-      { label: 'glucides', value: '--g', color: '#F9AB24' },
-      { label: 'fibres', value: '--g', color: '#3F6E3C' },
-    ],
-    []
-  );
 
   return (
     <ScrollView
