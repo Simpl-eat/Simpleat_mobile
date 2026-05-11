@@ -13,7 +13,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useRecipes } from '@/hooks/useRecipes';
 
-export default function RecipesDebugScreen() {
+export default function SuggestionsScreen() {
   const { recipes, error, isLoading, refetch } = useRecipes();
 
   const countLabel = useMemo(() => {

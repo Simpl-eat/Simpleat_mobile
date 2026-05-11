@@ -1,43 +1,26 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { CustomTabBar } from '@/components/custom-tab-bar';
+
+export const unstable_settings = {
+  initialRouteName: 'suggestions',
+};
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
       }}>
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="(protected)"
-        options={{
-          title: 'Recette',
-          href: '/(tabs)/(protected)/receipe',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
-        }}
-      />
+      <Tabs.Screen name="mes-likes" options={{ title: 'Mes likes' }} />
+      <Tabs.Screen name="ma-cuisine" options={{ title: 'Ma cuisine' }} />
+      <Tabs.Screen name="suggestions" options={{ title: 'Suggestions' }} />
+      <Tabs.Screen name="simpl-ia" options={{ title: "Simpl'IA" }} />
+      <Tabs.Screen name="profil" options={{ title: 'Mon profil' }} />
+      <Tabs.Screen name="home" options={{ href: null }} />
+      <Tabs.Screen name="explore" options={{ href: null }} />
+      <Tabs.Screen name="(protected)" options={{ href: null }} />
     </Tabs>
   );
 }

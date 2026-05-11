@@ -7,16 +7,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useFridge } from '@/hooks/useFridge';
 import { supabase } from '@/lib/supabase';
 import type { Ingredient } from '@/lib/types/ingredient';
 import type { UserStock } from '@/lib/types/user-stock';
-import { useFridge } from '@/hooks/useFridge';
 
 type QuantityMap = Record<number, string>;
 
-export default function FridgeScreen() {
+export default function MaCuisineScreen() {
   const { stockItems, ingredients, isLoading, error, reload } = useFridge();
   const [search, setSearch] = useState('');
   const [quantities, setQuantities] = useState<QuantityMap>({});
@@ -108,13 +109,13 @@ export default function FridgeScreen() {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from('userStock')
         .update({ quantity })
         .eq('id', stockLine.id);
 
-      if (error) {
-        throw error;
+      if (updateError) {
+        throw updateError;
       }
 
       await reload();
@@ -130,10 +131,10 @@ export default function FridgeScreen() {
     setLocalError(null);
 
     try {
-      const { error } = await supabase.from('userStock').delete().eq('id', stockLine.id);
+      const { error: deleteError } = await supabase.from('userStock').delete().eq('id', stockLine.id);
 
-      if (error) {
-        throw error;
+      if (deleteError) {
+        throw deleteError;
       }
 
       await reload();
@@ -149,7 +150,8 @@ export default function FridgeScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <ThemedText type="title" style={styles.whiteText}>
-            Frigo virtuel</ThemedText>
+            Ma cuisine
+          </ThemedText>
           <ThemedText style={[styles.subtitle, styles.whiteText]}>
             Ajoute des ingrédients et indique combien tu en as.
           </ThemedText>
@@ -180,9 +182,7 @@ export default function FridgeScreen() {
             Stock actuel
           </ThemedText>
           {stockItems.length === 0 ? (
-            <ThemedText style={styles.whiteText}>
-              Aucun ingrédient dans le frigo.
-            </ThemedText>
+            <ThemedText style={styles.whiteText}>Aucun ingrédient enregistré.</ThemedText>
           ) : (
             stockItems.map((stockLine) => (
               <View key={stockLine.id} style={styles.stockRow}>
@@ -228,7 +228,7 @@ export default function FridgeScreen() {
             style={styles.input}
           />
 
-          <FlatList
+          <FlatList<Ingredient>
             data={availableIngredients}
             keyExtractor={(item) => String(item.id)}
             renderItem={({ item }) => (
@@ -250,7 +250,9 @@ export default function FridgeScreen() {
                 </Pressable>
               </View>
             )}
-            ListEmptyComponent={<ThemedText style={styles.whiteText}>Aucun ingrédient disponible.</ThemedText>}
+            ListEmptyComponent={
+              <ThemedText style={styles.whiteText}>Aucun ingrédient disponible.</ThemedText>
+            }
             contentContainerStyle={styles.listContainer}
           />
         </View>

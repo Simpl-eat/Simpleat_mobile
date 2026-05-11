@@ -61,7 +61,7 @@ export function AuthRedirect({ children }: { children: React.ReactNode }) {
 
     if (hasProfile === true) {
       if (isWelcomeOrAuth(pathname) || ONBOARDING_PATHS.has(pathname)) {
-        router.replace('/home');
+        router.replace('/suggestions');
       }
     }
   }, [

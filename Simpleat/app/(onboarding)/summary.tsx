@@ -10,7 +10,6 @@ import {
   TextInput,
   TouchableOpacity,
   useColorScheme,
-  View,
 } from 'react-native';
 
 import { useAuthRoutingContext } from '@/contexts/auth-routing-context';
@@ -20,7 +19,7 @@ import { createProfileFromOnboarding } from '@/lib/profile';
 
 export default function OnboardingSummaryScreen() {
   const router = useRouter();
-  const { data, setData, reset } = useOnboardingWizard();
+  const { data, reset } = useOnboardingWizard();
   const { session, refreshProfile } = useAuthRoutingContext();
 
   const [allergy, setAllergy] = useState(data.allergy);
@@ -65,7 +64,7 @@ export default function OnboardingSummaryScreen() {
 
     reset();
     await refreshProfile();
-    router.replace('/home');
+    router.replace('/suggestions');
     setSubmitting(false);
   }
 
