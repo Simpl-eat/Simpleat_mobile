@@ -9,7 +9,15 @@ export default function RecipeLayout() {
     <Stack
       screenOptions={{
         headerShown: false,
-      }}
-    />
+      }}>
+      {/**
+       * Une seule entrée de pile pour toutes les fiches : changer d’id met à jour les params
+       * sur le même écran au lieu d’empiler des copies qui gardent l’ancien état React.
+       */}
+      <Stack.Screen
+        name="[id]"
+        dangerouslySingular={() => 'recipe-detail'}
+      />
+    </Stack>
   );
 }

@@ -28,10 +28,12 @@ function formatDescriptionLines(description: string | null): string[] {
 }
 
 export default function RecipeDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id } = useLocalSearchParams<{ id: string | string[] }>();
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
-  const { recipe, error, isLoading, refetch } = useRecipe(id);
+  const { recipe, error, isLoading, refetch } = useRecipe(
+    Array.isArray(id) ? id[0] : id
+  );
 
   const nutritionItems = useMemo(
     () => [

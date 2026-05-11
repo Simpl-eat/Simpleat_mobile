@@ -28,9 +28,6 @@ export function useRecipe(id: string | undefined): UseRecipeResult {
       return;
     }
 
-    setIsLoading(true);
-    setError(null);
-
     // id en base = bigint : on envoie un number
     const idNum = Number(recipeId);
     if (Number.isNaN(idNum) || String(idNum) !== recipeId) {
@@ -39,6 +36,10 @@ export function useRecipe(id: string | undefined): UseRecipeResult {
       setIsLoading(false);
       return;
     }
+
+    setIsLoading(true);
+    setRecipe(null);
+    setError(null);
 
     const { data, error: supabaseError } = await supabase
       .from('recipe')
