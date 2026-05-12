@@ -73,6 +73,10 @@ export type UseProfileResult = {
   gender: string | null;
   height: string | null;
   weight: string | null;
+  dietOptions: string[];
+  goalOptions: string[];
+  dietGoalOptionsLoading: boolean;
+  dietGoalOptionsError: string | null;
   refresh: () => Promise<void>;
   refetch: () => Promise<void>;
   saveProfile: (payload: UpdateProfilePayload) => Promise<boolean>;
@@ -96,7 +100,52 @@ export function useProfile(): UseProfileResult {
   const [emailMessage, setEmailMessage] = useState<string | null>(null);
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [dietOptions, setDietOptions] = useState<string[]>([]);
+  const [goalOptions, setGoalOptions] = useState<string[]>([]);
+  const [dietGoalOptionsLoading, setDietGoalOptionsLoading] = useState(true);
+  const [dietGoalOptionsError, setDietGoalOptionsError] = useState<string | null>(
+    null,
+  );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadDietGoalOptions() {
+      setDietGoalOptionsLoading(true);
+      setDietGoalOptionsError(null);
+
+      const { data: dietData, error: dietErr } =
+        await supabase.rpc('get_diet_options');
+      const { data: goalData, error: goalErr } =
+        await supabase.rpc('get_goal_options');
+
+      if (cancelled) return;
+
+      const rpcError = dietErr ?? goalErr;
+      if (rpcError) {
+        setDietGoalOptionsError(rpcError.message);
+        setDietOptions([]);
+        setGoalOptions([]);
+        setDietGoalOptionsLoading(false);
+        return;
+      }
+
+      let nextDiets: string[] = [];
+      if (dietData?.length) {
+        const filtered = (dietData as string[]).filter((item) => item !== 'None');
+        nextDiets = ['None', ...filtered];
+      }
+      setDietOptions(nextDiets);
+      setGoalOptions((goalData as string[]) ?? []);
+      setDietGoalOptionsLoading(false);
+    }
+
+    void loadDietGoalOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadProfile = useCallback(async (userId: string) => {
     setIsLoading(true);
@@ -133,12 +182,27 @@ export function useProfile(): UseProfileResult {
       setIsSaving(true);
       setSaveError(null);
 
+      const diet = payload.diet.trim();
+      const goal = payload.goal.trim();
+
+      if (
+        dietOptions.length > 0 &&
+        goalOptions.length > 0 &&
+        (!dietOptions.includes(diet) || !goalOptions.includes(goal))
+      ) {
+        setSaveError(
+          'Régime ou objectif invalide. Sélectionnez une option dans les listes.',
+        );
+        setIsSaving(false);
+        return false;
+      }
+
       const { data, error: updateError } = await supabase
         .from('profile')
         .update({
           pseudo: payload.pseudo.trim(),
-          diet: payload.diet,
-          goal: payload.goal,
+          diet,
+          goal,
           allergy: payload.allergy?.trim() || null,
           desire: payload.desire?.trim() || null,
         })
@@ -156,7 +220,7 @@ export function useProfile(): UseProfileResult {
       setIsSaving(false);
       return true;
     },
-    [user?.id],
+    [user?.id, dietOptions, goalOptions],
   );
 
   const changePassword = useCallback(
@@ -354,6 +418,10 @@ export function useProfile(): UseProfileResult {
     gender: metadata.gender ?? null,
     height,
     weight,
+    dietOptions,
+    goalOptions,
+    dietGoalOptionsLoading,
+    dietGoalOptionsError,
     refresh,
     refetch: refresh,
     saveProfile,
