@@ -1,6 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
+
+import { useMemo } from "react";
+
 import {
   ActivityIndicator,
   FlatList,
@@ -155,6 +158,16 @@ export default function SuggestionsScreen() {
           onLike={() => togglePreference(item.id, true)}
           onDislike={() => togglePreference(item.id, false)}
         />
+  const countLabel = useMemo(() => {
+    if (!recipes) return "Aucune recette chargee";
+    return `${recipes.length} recette(s) chargee(s)`;
+  }, [recipes]);
+
+  return (
+    <ThemedView style={styles.container}>
+      <View style={styles.header}>
+        <ThemedText type="title">Liste de recettes</ThemedText>
+        <ThemedText style={styles.meta}>{countLabel}</ThemedText>
       </View>
     ),
     [preferences, goToRecipe, togglePreference],
