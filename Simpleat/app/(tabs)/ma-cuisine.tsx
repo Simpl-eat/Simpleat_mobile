@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
@@ -23,6 +24,7 @@ export default function MaCuisineScreen() {
   const [quantities, setQuantities] = useState<QuantityMap>({});
   const [isSaving, setIsSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const router = useRouter(); // <-- Ajoute cette ligne
 
   const availableIngredients = useMemo(
     () =>
@@ -221,11 +223,23 @@ export default function MaCuisineScreen() {
           <ThemedText type="subtitle" style={styles.whiteText}>
             Ajouter un ingrédient
           </ThemedText>
+
+          {/* --- NOUVEAU BOUTON SCAN --- */}
+          <Pressable
+              style={[styles.button, { backgroundColor: '#4CAF50', marginBottom: 10, alignItems: 'center' }]}
+              onPress={() => router.push('/scan')}
+          >
+            <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
+              Scanner votre article
+            </ThemedText>
+          </Pressable>
+          {/* --------------------------- */}
+
           <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Rechercher un ingrédient"
-            style={styles.input}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Rechercher un ingrédient"
+              style={styles.input}
           />
 
           <FlatList<Ingredient>
