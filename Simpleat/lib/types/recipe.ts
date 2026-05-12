@@ -13,7 +13,7 @@ export type Recipe = {
   str_area: string | null;
   name_fr: string | null;
   description_fr: string | null;
-  step_fr: string | null;
+  step_fr: string;
   /** interval Postgres → chaîne côté client */
   preparation_time: string | null;
   cook_time: string | null;
