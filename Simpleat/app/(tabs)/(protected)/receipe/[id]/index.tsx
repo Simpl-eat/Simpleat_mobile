@@ -1,17 +1,17 @@
+import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
+  ImageBackground,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   View,
-  Image,
-  ImageBackground,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -84,7 +84,7 @@ export default function RecipeDetailScreen() {
     >
       {/* SECTION HAUT : FOND + IMAGE + BOUTONS */}
       <ImageBackground 
-        source={require('@/assets/images/fond_picto_general.svg')} 
+        source={require('@/assets/images/fond_picto_general.png')} 
         style={styles.heroContainer}
         imageStyle={styles.topPictoImage}
       >
@@ -121,7 +121,7 @@ export default function RecipeDetailScreen() {
 
         <View style={styles.sectionBlock}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>Ingrédients</ThemedText>
-          {formatDescriptionLines(recipe?.description_fr).map((line, i) => (
+          {formatDescriptionLines(recipe?.description_fr || '').map((line, i) => (
             <ThemedText key={i} style={styles.ingredient}>{line}</ThemedText>
           ))}
         </View>
@@ -134,14 +134,14 @@ export default function RecipeDetailScreen() {
         </View>
 
         <View style={styles.bonAppetitContainer}>
-          <Image source={require('@/assets/images/broco_tasting.svg')} style={styles.mascotImage} resizeMode="contain" />
+          <Image source={require('@/assets/images/broco_tasting.png')} style={styles.mascotImage} resizeMode="contain" />
           <ThemedText type="title" style={styles.bonAppetitText}>Bon appétit !</ThemedText>
         </View>
       </View>
 
       {/* SECTION BAS : FOND + FEEDBACK OUI/NON */}
       <ImageBackground 
-        source={require('@/assets/images/fond_picto.svg')} 
+        source={require('@/assets/images/fond_picto.png')} 
         style={styles.bottomSectionContainer}
         imageStyle={styles.bottomPictoImage}
       >
