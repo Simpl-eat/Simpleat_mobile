@@ -38,7 +38,7 @@ export default function RecipeDetailScreen() {
 
   const recipeId = Array.isArray(id) ? id[0] : id;
 
-  const { recipe, error, isLoading, refetch } = useRecipe(recipeId);
+  const { recipe, macros, error, isLoading, refetch } = useRecipe(recipeId);
   const { preference, setPreference, removePreference } =
     useRecipePreference(recipeId);
 
@@ -51,15 +51,17 @@ export default function RecipeDetailScreen() {
         .publicUrl
     : "https://via.placeholder.com/400x300";
 
-  // Couleurs dynamiques => contraste des macros
+  const fmt = (val: number | undefined) =>
+    val != null && val > 0 ? `${Math.round(val)}g` : "--g";
+
   const nutritionItems = useMemo(
     () => [
-      { label: "lipides", value: "--g", bg: "#F5D90A", text: "#111111" },
-      { label: "protéines", value: "--g", bg: "#FF6D6D", text: "#FFFFFF" },
-      { label: "glucides", value: "--g", bg: "#F9AB24", text: "#111111" },
-      { label: "fibres", value: "--g", bg: "#3F6E3C", text: "#FFFFFF" },
+      { label: "lipides", value: fmt(macros?.fat), bg: "#F5D90A", text: "#111111" },
+      { label: "protéines", value: fmt(macros?.protein), bg: "#FF6D6D", text: "#FFFFFF" },
+      { label: "glucides", value: fmt(macros?.carbohydrates), bg: "#F9AB24", text: "#111111" },
+      { label: "fibres", value: fmt(macros?.fiber), bg: "#3F6E3C", text: "#FFFFFF" },
     ],
-    [],
+    [macros],
   );
 
   const handleToggleLike = async () => {
