@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +12,7 @@ import {
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useProfile } from '@/hooks/useProfile';
+import { DIET_GOAL_LABELS } from '@/lib/diet-goal-labels';
 
 type ProfileFormState = {
   pseudo: string;
@@ -45,6 +47,103 @@ function Pill({
   );
 }
 
+function EnumSelectField({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (next: string) => void;
+  disabled?: boolean;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const displayLabel =
+    value && DIET_GOAL_LABELS[value] !== undefined
+      ? DIET_GOAL_LABELS[value]
+      : value || placeholder;
+
+  return (
+    <View style={styles.inputBlock}>
+      <ThemedText style={styles.inputLabel}>{label}</ThemedText>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityHint="Ouvre la liste des choix possibles"
+        onPress={() => !disabled && options.length > 0 && setOpen(true)}
+        style={[
+          styles.input,
+          styles.selectTrigger,
+          (disabled || options.length === 0) && styles.selectTriggerDisabled,
+        ]}
+        disabled={disabled || options.length === 0}
+      >
+        <ThemedText
+          style={[
+            styles.selectTriggerText,
+            !value && styles.selectPlaceholder,
+          ]}
+          numberOfLines={1}
+        >
+          {displayLabel}
+        </ThemedText>
+        <ThemedText style={styles.selectChevron}>▼</ThemedText>
+      </Pressable>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setOpen(false)}
+            accessibilityLabel="Fermer"
+          />
+          <View style={styles.modalSheet}>
+            <ThemedText type="subtitle" style={styles.modalTitle}>
+              {label}
+            </ThemedText>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              style={styles.modalScroll}
+            >
+              {options.map((opt) => (
+                <Pressable
+                  key={opt}
+                  onPress={() => {
+                    onChange(opt);
+                    setOpen(false);
+                  }}
+                  style={[
+                    styles.modalOption,
+                    value === opt && styles.modalOptionSelected,
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.modalOptionText,
+                      value === opt && styles.modalOptionTextSelected,
+                    ]}
+                  >
+                    {DIET_GOAL_LABELS[opt] ?? opt}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 export default function ProfilScreen() {
   const {
     profile,
@@ -61,10 +160,13 @@ export default function ProfilScreen() {
     signOutLoading,
     signOutError,
     displayName,
-    subtitle,
     dietLabel,
     preferredItems,
     allergyItems,
+    dietOptions,
+    goalOptions,
+    dietGoalOptionsLoading,
+    dietGoalOptionsError,
     saveProfile,
     changePassword,
     changeEmail,
@@ -94,6 +196,21 @@ export default function ProfilScreen() {
       desire: profile?.desire ?? '',
     });
   }, [profile]);
+
+  useEffect(() => {
+    if (!dietOptions.length || !goalOptions.length) return;
+    setForm((prev) => ({
+      ...prev,
+      diet:
+        prev.diet && dietOptions.includes(prev.diet)
+          ? prev.diet
+          : (dietOptions[0] ?? ''),
+      goal:
+        prev.goal && goalOptions.includes(prev.goal)
+          ? prev.goal
+          : (goalOptions[0] ?? ''),
+    }));
+  }, [dietOptions, goalOptions]);
 
   function setField(key: keyof ProfileFormState, value: string) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -249,27 +366,40 @@ export default function ProfilScreen() {
               />
             </View>
 
-            <View style={styles.inputBlock}>
-              <ThemedText style={styles.inputLabel}>Régime</ThemedText>
-              <TextInput
-                value={form.diet}
-                onChangeText={(value) => setField('diet', value)}
-                placeholder="Vegetarian, Vegan, None…"
-                style={styles.input}
-                editable={!isSaving}
-              />
-            </View>
+            {dietGoalOptionsLoading ? (
+              <View style={styles.selectLoadingRow}>
+                <ActivityIndicator color="#40502F" />
+                <ThemedText style={styles.selectLoadingText}>
+                  Chargement des régimes et objectifs…
+                </ThemedText>
+              </View>
+            ) : null}
 
-            <View style={styles.inputBlock}>
-              <ThemedText style={styles.inputLabel}>Objectif</ThemedText>
-              <TextInput
-                value={form.goal}
-                onChangeText={(value) => setField('goal', value)}
-                placeholder="Weight loss, Weight gain…"
-                style={styles.input}
-                editable={!isSaving}
-              />
-            </View>
+            {dietGoalOptionsError ? (
+              <View style={styles.errorBox}>
+                <ThemedText style={styles.errorText}>
+                  Impossible de charger les options : {dietGoalOptionsError}
+                </ThemedText>
+              </View>
+            ) : null}
+
+            <EnumSelectField
+              label="Régime"
+              value={form.diet}
+              options={dietOptions}
+              onChange={(v) => setField('diet', v)}
+              disabled={isSaving || dietGoalOptionsLoading}
+              placeholder="Choisir un régime"
+            />
+
+            <EnumSelectField
+              label="Objectif"
+              value={form.goal}
+              options={goalOptions}
+              onChange={(v) => setField('goal', v)}
+              disabled={isSaving || dietGoalOptionsLoading}
+              placeholder="Choisir un objectif"
+            />
 
             <View style={styles.inputBlock}>
               <ThemedText style={styles.inputLabel}>Allergies</ThemedText>
@@ -417,10 +547,21 @@ export default function ProfilScreen() {
             <Pressable
               style={[
                 styles.saveButton,
-                (isLoading || isSaving) && styles.saveButtonDisabled,
+                (isLoading ||
+                  isSaving ||
+                  dietGoalOptionsLoading ||
+                  !dietOptions.length ||
+                  !goalOptions.length) &&
+                  styles.saveButtonDisabled,
               ]}
               onPress={handleSave}
-              disabled={isLoading || isSaving}
+              disabled={
+                isLoading ||
+                isSaving ||
+                dietGoalOptionsLoading ||
+                !dietOptions.length ||
+                !goalOptions.length
+              }
             >
               {isSaving ? (
                 <ActivityIndicator color="#fff" />
@@ -582,6 +723,83 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1F2A18',
     backgroundColor: '#F8F8F4',
+  },
+  selectTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  selectTriggerDisabled: {
+    opacity: 0.55,
+  },
+  selectTriggerText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1F2A18',
+  },
+  selectPlaceholder: {
+    color: '#8A9584',
+  },
+  selectChevron: {
+    fontSize: 12,
+    color: '#5B6A51',
+  },
+  selectLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+  },
+  selectLoadingText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#5B6A51',
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    backgroundColor: 'rgba(31, 42, 24, 0.45)',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  modalSheet: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
+    maxHeight: '72%',
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  modalTitle: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    color: '#40502F',
+  },
+  modalScroll: {
+    flexGrow: 0,
+  },
+  modalOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  modalOptionSelected: {
+    backgroundColor: '#EAEDE6',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    color: '#1F2A18',
+  },
+  modalOptionTextSelected: {
+    fontWeight: '700',
+    color: '#40502F',
   },
   multilineInput: {
     minHeight: 96,
