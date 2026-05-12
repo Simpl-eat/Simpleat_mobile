@@ -1,7 +1,7 @@
 ﻿import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, Alert } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
 
@@ -17,88 +17,143 @@ export default function ScanScreen() {
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+    const [quantity, setQuantity] = useState('1');
+    const [isSaving, setIsSaving] = useState(false);
 
-    if (!permission) {
-        return <View style={styles.container} />;
-    }
+    if (!permission) return <View style={styles.container} />;
 
     if (!permission.granted) {
         return (
             <View style={styles.container}>
-                <Text style={styles.text}>Simpl'eat a besoin de ton autorisation pour utiliser la caméra.</Text>
+                <Text style={styles.text}>Autorisation caméra requise.</Text>
                 <TouchableOpacity style={styles.button} onPress={requestPermission}>
-                    <Text style={styles.buttonText}>Autoriser la caméra</Text>
+                    <Text style={styles.buttonText}>Autoriser</Text>
                 </TouchableOpacity>
             </View>
         );
     }
 
-    const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+    const handleBarCodeScanned = async ({ data }: { data: string }) => {
         if (isProcessing || scanResult) return;
-
         setIsProcessing(true);
 
         try {
+            console.log("--- Début Scan Barcode:", data);
             const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${data}.json`);
             const offData = await response.json();
 
             if (offData.status !== 1) {
-                alert("Ce produit est introuvable sur Open Food Facts.");
-                setIsProcessing(false);
+                Alert.alert("Introuvable", "Produit inconnu sur Open Food Facts.");
                 return;
             }
 
-            const genericName = offData.product.generic_name_fr || offData.product.generic_name || "";
-            const commercialName = offData.product.product_name_fr || offData.product.product_name || "";
-            const displayProductName = commercialName || genericName || "Produit inconnu";
-            const textToSearch = (genericName + " " + commercialName).toLowerCase();
-            const stopWords = ['des', 'les', 'aux', 'sur', 'pour', 'avec', 'sans', 'pur', 'bio'];
+            const generic = offData.product.generic_name_fr || "";
+            const brand = offData.product.brands || "";
+            const name = offData.product.product_name_fr || "";
 
-            const words = textToSearch
+            // On cherche dans cet ordre de priorité pour le mot-clé
+            const searchSource = (generic || name || brand).toLowerCase();
+            const displayResult = name || generic || "Produit inconnu";
+
+            // Nettoyage : On garde le premier vrai nom (ex: "Miel de..." -> "Miel")
+            const stopWords = ['des', 'les', 'aux', 'pour', 'avec', 'bio', 'pur'];
+            const words = searchSource
                 .replace(/[^a-zà-ÿ]/g, ' ')
                 .split(' ')
-                .filter(w => w.trim().length > 2 && !stopWords.includes(w.trim()));
+                .filter(w => w.length > 2 && !stopWords.includes(w));
 
-            const searchWord = words.length > 0 ? words[0] : null;
+            const mainWord = words[0];
+            console.log("Mot-clé retenu pour recherche Supabase:", mainWord);
 
-            let dbIngredients = null;
-
-            if (searchWord) {
-                const { data: matchedData, error } = await supabase
+            if (mainWord) {
+                const { data: dbItems, error } = await supabase
                     .from('ingredient')
                     .select('*')
                     .is('deleted_at', null)
-                    .ilike('name_fr', `%${searchWord}%`)
+                    .ilike('name_fr', `%${mainWord}%`)
                     .limit(1);
 
                 if (error) throw error;
-                dbIngredients = matchedData;
+
+                setScanResult({
+                    barcode: data,
+                    offName: displayResult,
+                    matchedIngredient: dbItems?.[0] || null
+                });
+            } else {
+                setScanResult({ barcode: data, offName: displayResult, matchedIngredient: null });
             }
 
-            setScanResult({
-                barcode: data,
-                offName: displayProductName,
-                matchedIngredient: dbIngredients && dbIngredients.length > 0 ? dbIngredients[0] : null
-            });
-
-        } catch (error) {
-            console.error("Erreur lors du scan :", error);
-            alert("Une erreur est survenue lors de la recherche du produit.");
+        } catch (error: any) {
+            console.error("Erreur Scan:", error);
+            Alert.alert("Erreur", "Problème lors de la recherche produit.");
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const resetScan = () => {
-        setScanResult(null);
-        setIsProcessing(false);
+    const handleAddToStock = async () => {
+        if (!scanResult?.matchedIngredient) return;
+
+        const qty = Number(quantity.replace(',', '.'));
+        if (isNaN(qty) || qty <= 0) {
+            Alert.alert("Erreur", "Saisis une quantité valide.");
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            // 1. Récupération User
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Session expirée. Reconnecte-toi.");
+
+            const ingId = scanResult.matchedIngredient.id;
+
+            // 2. Vérification existence (comme dans ma-cuisine.tsx)
+            const { data: existing } = await supabase
+                .from('userStock')
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('ingredient_id', ingId)
+                .is('deleted_at', null)
+                .maybeSingle();
+
+            let error;
+            if (existing) {
+                console.log("Mise à jour stock existant...");
+                const { error: err } = await supabase
+                    .from('userStock')
+                    .update({ quantity: existing.quantity + qty })
+                    .eq('id', existing.id);
+                error = err;
+            } else {
+                console.log("Création nouvelle ligne de stock...");
+                const { error: err } = await supabase.from('userStock').insert({
+                    user_id: user.id,
+                    ingredient_id: ingId,
+                    quantity: qty,
+                });
+                error = err;
+            }
+
+            if (error) throw error;
+
+            Alert.alert("Succès", `${scanResult.matchedIngredient.name_fr} ajouté !`, [
+                { text: "OK", onPress: () => router.back() }
+            ]);
+
+        } catch (err: any) {
+            console.error("Erreur Insertion Stock:", err);
+            Alert.alert("Erreur Database", err.message || "Impossible d'ajouter au stock.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     return (
         <View style={styles.container}>
             <CameraView
                 style={styles.camera}
-                facing="back"
                 onBarcodeScanned={scanResult ? undefined : handleBarCodeScanned}
             >
                 <View style={styles.topOverlay}>
@@ -107,37 +162,42 @@ export default function ScanScreen() {
                     </TouchableOpacity>
                 </View>
 
-                {isProcessing && (
-                    <View style={styles.loadingOverlay}>
-                        <ActivityIndicator size="large" color="#4CAF50" />
-                        <Text style={styles.loadingText}>Recherche du produit...</Text>
-                    </View>
-                )}
+                {isProcessing && <ActivityIndicator size="large" color="#4CAF50" style={styles.loader} />}
 
                 {scanResult && (
                     <View style={styles.resultOverlay}>
-                        <Text style={styles.resultTitle}>Produit scanné :</Text>
                         <Text style={styles.resultOffName}>{scanResult.offName}</Text>
 
                         <View style={styles.matchBox}>
-                            <Text style={styles.matchLabel}>Correspondance Supabase :</Text>
-                            {scanResult.matchedIngredient ? (
-                                <Text style={styles.matchSuccess}>
-                                    {scanResult.matchedIngredient.name_fr}
-                                </Text>
-                            ) : (
-                                <Text style={styles.matchFail}>
-                                    Aucun ingrédient trouvé en base.
-                                </Text>
-                            )}
+                            <Text style={styles.matchLabel}>Trouvé en base :</Text>
+                            <Text style={scanResult.matchedIngredient ? styles.matchSuccess : styles.matchFail}>
+                                {scanResult.matchedIngredient?.name_fr || "Aucune correspondance"}
+                            </Text>
                         </View>
 
-                        <TouchableOpacity style={styles.primaryButton} onPress={() => alert('Bientôt : Ajout au stock !')}>
-                            <Text style={styles.primaryButtonText}>Ajouter au stock</Text>
-                        </TouchableOpacity>
+                        {scanResult.matchedIngredient && (
+                            <>
+                                <View style={styles.quantityRow}>
+                                    <Text style={styles.qLabel}>Quantité :</Text>
+                                    <TextInput
+                                        style={styles.qInput}
+                                        value={quantity}
+                                        onChangeText={setQuantity}
+                                        keyboardType="decimal-pad"
+                                    />
+                                </View>
+                                <TouchableOpacity
+                                    style={styles.primaryButton}
+                                    onPress={handleAddToStock}
+                                    disabled={isSaving}
+                                >
+                                    {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryButtonText}>Ajouter à ma cuisine</Text>}
+                                </TouchableOpacity>
+                            </>
+                        )}
 
-                        <TouchableOpacity style={styles.secondaryButton} onPress={resetScan}>
-                            <Text style={styles.secondaryButtonText}>Scanner un autre produit</Text>
+                        <TouchableOpacity style={styles.secondaryButton} onPress={() => setScanResult(null)}>
+                            <Text style={styles.secondaryButtonText}>Réessayer</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -148,63 +208,24 @@ export default function ScanScreen() {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#000' },
-    camera: { flex: 1, justifyContent: 'space-between' },
-
-    loadingOverlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: { color: '#fff', marginTop: 10, fontSize: 16, fontWeight: 'bold' },
-
-    topOverlay: {
-        paddingTop: 50,
-        paddingHorizontal: 20,
-        alignItems: 'flex-start',
-    },
-    closeButton: {
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-    },
-    buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-
-    resultOverlay: {
-        backgroundColor: '#fff',
-        padding: 24,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        gap: 12,
-    },
-    resultTitle: { fontSize: 14, color: '#666', fontWeight: '600' },
-    resultOffName: { fontSize: 22, fontWeight: 'bold', color: '#111', marginBottom: 8 },
-
-    matchBox: {
-        backgroundColor: '#F5F5F5',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 10,
-    },
-    matchLabel: { fontSize: 12, color: '#666', marginBottom: 4 },
-    matchSuccess: { fontSize: 16, color: '#2e7d32', fontWeight: 'bold' },
-    matchFail: { fontSize: 14, color: '#c62828' },
-
-    // Buttons
-    primaryButton: {
-        backgroundColor: '#4CAF50',
-        paddingVertical: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-    },
-    primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    secondaryButton: {
-        paddingVertical: 16,
-        alignItems: 'center',
-    },
-    secondaryButtonText: { color: '#666', fontSize: 16, fontWeight: '600' },
-
-    text: { color: '#fff', textAlign: 'center', marginBottom: 20, fontSize: 16, paddingHorizontal: 20 },
-    button: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 12, marginHorizontal: 40, alignItems: 'center' },
+    camera: { flex: 1, justifyContent: 'flex-end' },
+    topOverlay: { position: 'absolute', top: 50, left: 20 },
+    closeButton: { backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 8 },
+    buttonText: { color: '#fff', fontWeight: 'bold' },
+    loader: { marginBottom: 100 },
+    resultOverlay: { backgroundColor: '#fff', padding: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24, gap: 15 },
+    resultOffName: { fontSize: 20, fontWeight: 'bold', color: '#111' },
+    matchBox: { backgroundColor: '#f0f0f0', padding: 12, borderRadius: 10 },
+    matchLabel: { fontSize: 12, color: '#666' },
+    matchSuccess: { color: '#2e7d32', fontWeight: 'bold', fontSize: 16 },
+    matchFail: { color: '#c62828' },
+    quantityRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    qLabel: { fontWeight: '600' },
+    qInput: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, width: 60, textAlign: 'center' },
+    primaryButton: { backgroundColor: '#4CAF50', padding: 16, borderRadius: 12, alignItems: 'center' },
+    primaryButtonText: { color: '#fff', fontWeight: 'bold' },
+    secondaryButton: { alignItems: 'center', padding: 10 },
+    secondaryButtonText: { color: '#666' },
+    text: { color: '#fff', textAlign: 'center', marginTop: 100 },
+    button: { backgroundColor: '#4CAF50', padding: 15, borderRadius: 10, alignSelf: 'center' }
 });
