@@ -1,8 +1,9 @@
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { Recipe } from '@/lib/types/recipe';
 import { intervalToMinutes } from '@/hooks/useFilteredRecipes';
+import { supabase } from '@/lib/supabase';
+import type { Recipe } from '@/lib/types/recipe';
 
 type RecipeCardProps = {
   recipe: Recipe;
@@ -25,13 +26,19 @@ function formatTime(interval: string | null): string | null {
 export function RecipeCard({ recipe, preference, onPress, onLike, onDislike }: RecipeCardProps) {
   const time = formatTime(recipe.total_time);
 
+  // URL image depuis bucket Supabase
+  const imageUrl = recipe.id
+    ? supabase.storage.from("img-recette").getPublicUrl(`${recipe.id}.jpg`).data
+        .publicUrl
+    : "https://via.placeholder.com/400x300";
+
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      {recipe.image ? (
-        <Image source={{ uri: recipe.image }} style={styles.image} resizeMode="cover" />
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
       ) : (
         <View style={styles.imagePlaceholder}>
           <MaterialCommunityIcons name="food" size={36} color="#A8C699" />
