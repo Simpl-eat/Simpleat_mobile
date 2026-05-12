@@ -22,7 +22,7 @@ import {
   type TimeFilter,
 } from '@/hooks/useFilteredRecipes';
 import { useProfile } from '@/hooks/useProfile';
-import { useRecipePreferences } from '@/hooks/useRecipePreferences';
+import { useRecipePreferences } from '@/hooks/useRecipePreference';
 import { DIET_GOAL_LABELS } from '@/lib/diet-goal-labels';
 import type { Recipe } from '@/lib/types/recipe';
 
