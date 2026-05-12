@@ -1,5 +1,5 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -20,7 +20,7 @@ import { useRecipePreference } from '@/hooks/useRecipePreference';
 
 function formatStepLines(step: string): string[] {
   if (!step.trim()) return [];
-  return step.split('\n').filter(Boolean);
+  return step.split("\n").filter(Boolean);
 }
 
 function formatDescriptionLines(description: string | null): string[] {

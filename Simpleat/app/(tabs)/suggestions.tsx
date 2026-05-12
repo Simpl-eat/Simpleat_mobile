@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { router } from "expo-router";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -7,24 +7,24 @@ import {
   ScrollView,
   StyleSheet,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useRecipes } from '@/hooks/useRecipes';
+import { ThemedText } from "@/components/themed-text";
+import { ThemedView } from "@/components/themed-view";
+import { useRecipes } from "@/hooks/useRecipes";
 
 export default function SuggestionsScreen() {
   const { recipes, error, isLoading, refetch } = useRecipes();
 
   const countLabel = useMemo(() => {
-    if (!recipes) return 'Aucune recette chargee';
+    if (!recipes) return "Aucune recette chargee";
     return `${recipes.length} recette(s) chargee(s)`;
   }, [recipes]);
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title">Test Supabase - recettes</ThemedText>
+        <ThemedText type="title">Liste de recettes</ThemedText>
         <ThemedText style={styles.meta}>{countLabel}</ThemedText>
       </View>
 
@@ -51,14 +51,20 @@ export default function SuggestionsScreen() {
           {(recipes ?? []).map((recipe) => (
             <Pressable
               key={recipe.id}
-              style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+              style={({ pressed }) => [
+                styles.card,
+                pressed && styles.cardPressed,
+              ]}
               onPress={() =>
                 router.push({
-                  pathname: '/(tabs)/(protected)/receipe/[id]',
+                  pathname: "/(tabs)/(protected)/receipe/[id]",
                   params: { id: String(recipe.id) },
                 })
-              }>
-              <ThemedText type="subtitle">{recipe.name_fr ?? 'Sans nom'}</ThemedText>
+              }
+            >
+              <ThemedText type="subtitle">
+                {recipe.name_fr ?? "Sans nom"}
+              </ThemedText>
               <ThemedText>ID: {recipe.id}</ThemedText>
               <ThemedText type="link">Voir la recette</ThemedText>
             </Pressable>
@@ -85,7 +91,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   centered: {
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 24,
     gap: 8,
   },
@@ -98,7 +104,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderWidth: 1,
-    borderColor: '#D9D9D9',
+    borderColor: "#D9D9D9",
     borderRadius: 8,
     padding: 12,
     gap: 4,
