@@ -51,6 +51,7 @@ function splitTags(raw?: string | null) {
 export type UseProfileResult = {
   user: User | null;
   profile: Profile | null;
+  error: Error | null;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -74,6 +75,7 @@ export type UseProfileResult = {
   height: string | null;
   weight: string | null;
   refresh: () => Promise<void>;
+  refetch: () => Promise<void>;
   saveProfile: (payload: UpdateProfilePayload) => Promise<boolean>;
   changePassword: (payload: ChangePasswordPayload) => Promise<boolean>;
   changeEmail: (payload: ChangeEmailPayload) => Promise<boolean>;
@@ -83,6 +85,7 @@ export type UseProfileResult = {
 export function useProfile(): UseProfileResult {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
