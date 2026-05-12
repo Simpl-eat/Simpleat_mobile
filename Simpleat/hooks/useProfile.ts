@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { supabase } from '@/lib/supabase';
-import { getProfileByUserId } from '@/lib/profile';
 import { DIET_GOAL_LABELS } from '@/lib/diet-goal-labels';
+import { getProfileByUserId } from '@/lib/profile';
+import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types/profile';
 
 type AuthMetadata = {
@@ -51,7 +51,6 @@ function splitTags(raw?: string | null) {
 export type UseProfileResult = {
   user: User | null;
   profile: Profile | null;
-  error: Error | null;
   isLoading: boolean;
   isSaving: boolean;
   error: string | null;
@@ -85,7 +84,6 @@ export type UseProfileResult = {
 export function useProfile(): UseProfileResult {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -214,7 +212,7 @@ export function useProfile(): UseProfileResult {
         return false;
       }
 
-        if (payload.email !== payload.confirmEmail) {
+      if (payload.email !== payload.confirmEmail) {
         setEmailError('La confirmation ne correspond pas.');
         setEmailSaving(false);
         return false;
@@ -357,6 +355,7 @@ export function useProfile(): UseProfileResult {
     height,
     weight,
     refresh,
+    refetch: refresh,
     saveProfile,
     passwordSaving,
     passwordError,
