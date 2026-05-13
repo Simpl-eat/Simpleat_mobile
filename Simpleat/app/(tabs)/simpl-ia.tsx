@@ -1,21 +1,101 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  getConversation,
+  getOrCreateLatestConversation,
+  isSender,
+  sendConversationMessage,
+} from '@/lib/chat-api';
+import type { ChatBotMessage } from '@/lib/types';
 
 export default function SimpliaScreen() {
   const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState('');
+  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<ChatBotMessage[]>([]);
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadConversation = useCallback(async () => {
+    setIsBootstrapping(true);
+    setError(null);
+    try {
+      const latestConversation = await getOrCreateLatestConversation();
+      setConversationId(latestConversation.id);
+      const conversation = await getConversation(latestConversation.id);
+      const validMessages = conversation.messages.filter((message) => isSender(message.sender));
+      setMessages(validMessages);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : 'Impossible de charger la conversation.');
+    } finally {
+      setIsBootstrapping(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConversation();
+  }, [loadConversation]);
+
+  const canSend = useMemo(() => {
+    return Boolean(inputText.trim()) && !isSending && !isBootstrapping && conversationId !== null;
+  }, [conversationId, inputText, isBootstrapping, isSending]);
+
+  const handleSendMessage = useCallback(async () => {
+    const content = inputText.trim();
+    if (!content || !conversationId || isSending) {
+      return;
+    }
+
+    const optimisticMessage: ChatBotMessage = {
+      id: -Date.now(),
+      conversation_id: conversationId,
+      sender: 'user',
+      message: content,
+      time: new Date().toISOString(),
+      deleted_at: null,
+    };
+
+    setError(null);
+    setInputText('');
+    setIsSending(true);
+    setMessages((current) => [...current, optimisticMessage]);
+
+    try {
+      const response = await sendConversationMessage(conversationId, content);
+
+      setMessages((current) =>
+        current.map((message) => (message.id === optimisticMessage.id ? response.userMessage : message))
+      );
+
+      if (response.iaMessage && isSender(response.iaMessage.sender)) {
+        setMessages((current) => [...current, response.iaMessage as ChatBotMessage]);
+      }
+
+      if (response.error) {
+        setError(response.error);
+      }
+    } catch (sendError) {
+      setMessages((current) => current.filter((message) => message.id !== optimisticMessage.id));
+      setError(sendError instanceof Error ? sendError.message : "L'envoi du message a échoué.");
+    } finally {
+      setIsSending(false);
+    }
+  }, [conversationId, inputText, isSending]);
 
   return (
     <ImageBackground
@@ -37,26 +117,53 @@ export default function SimpliaScreen() {
             resizeMode="contain" 
           />
           <View style={styles.titleRow}>
-            <Text style={styles.titleDark}>Simpl'</Text>
+            <Text style={styles.titleDark}>Simpl&apos;</Text>
             <Text style={styles.titleHighlight}>IA</Text>
           </View>
         </View>
 
         {/* --- CARTE PRINCIPALE --- */}
         <View style={styles.card}>
-          
-          {/* Contenu centré (Message + Mascotte) */}
-          <View style={styles.contentCenter}>
-            <Text style={styles.greetingText}>
-              Comment puis-je vous{'\n'}aider aujourd'hui ?
-            </Text>
-            
-            <Image 
-              source={require('@/assets/images/broco_waving.png')} 
-              style={styles.mascotCenter} 
-              resizeMode="contain" 
-            />
-          </View>
+          {isBootstrapping ? (
+            <View style={styles.loaderWrapper}>
+              <ActivityIndicator size="large" color="#496943" />
+              <Text style={styles.statusText}>Chargement de votre conversation...</Text>
+            </View>
+          ) : messages.length === 0 ? (
+            <View style={styles.contentCenter}>
+              <Text style={styles.greetingText}>
+                Comment puis-je vous{'\n'}aider aujourd&apos;hui ?
+              </Text>
+
+              <Image
+                source={require('@/assets/images/broco_waving.png')}
+                style={styles.mascotCenter}
+                resizeMode="contain"
+              />
+            </View>
+          ) : (
+            <ScrollView
+              style={styles.messagesList}
+              contentContainerStyle={styles.messagesContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {messages.map((message) => {
+                const fromAssistant = message.sender === 'ia';
+                return (
+                  <View
+                    key={`${message.id}-${message.time}`}
+                    style={[styles.bubble, fromAssistant ? styles.bubbleAssistant : styles.bubbleUser]}
+                  >
+                    <Text style={[styles.bubbleText, fromAssistant ? styles.bubbleTextAssistant : styles.bubbleTextUser]}>
+                      {message.message}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           {/* Zone de saisie (Input) */}
           <View style={styles.inputWrapper}>
@@ -66,15 +173,18 @@ export default function SimpliaScreen() {
               placeholderTextColor="#9CA3AF"
               value={inputText}
               onChangeText={setInputText}
+              editable={!isBootstrapping && !isSending}
             />
-            <Pressable 
-              style={styles.sendButton}
-              onPress={() => {
-                console.log("Message envoyé :", inputText);
-                setInputText('');
-              }}
+            <Pressable
+              style={[styles.sendButton, !canSend && styles.sendButtonDisabled]}
+              disabled={!canSend}
+              onPress={handleSendMessage}
             >
-              <Ionicons name="paper-plane" size={20} color="#FFFFFF" style={styles.sendIcon} />
+              {isSending ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="paper-plane" size={20} color="#FFFFFF" style={styles.sendIcon} />
+              )}
             </Pressable>
           </View>
 
@@ -160,6 +270,56 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
   },
+  loaderWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  statusText: {
+    color: '#496943',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  messagesList: {
+    flex: 1,
+  },
+  messagesContent: {
+    paddingVertical: 8,
+    gap: 10,
+  },
+  bubble: {
+    maxWidth: '85%',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+  },
+  bubbleUser: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#496943',
+  },
+  bubbleAssistant: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F7F3EA',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  bubbleText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  bubbleTextUser: {
+    color: '#FFFFFF',
+  },
+  bubbleTextAssistant: {
+    color: '#1F2937',
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 13,
+    marginBottom: 8,
+    fontWeight: '600',
+  },
 
   // INPUT
   inputWrapper: {
@@ -188,6 +348,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 10,
+  },
+  sendButtonDisabled: {
+    opacity: 0.5,
   },
   sendIcon: {
     marginLeft: -2,
