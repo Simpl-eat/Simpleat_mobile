@@ -6,12 +6,12 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform, // <-- AJOUTÉ
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,     // <-- AJOUTÉ
+  Text,
   TextInput,
   View,
 } from "react-native";
