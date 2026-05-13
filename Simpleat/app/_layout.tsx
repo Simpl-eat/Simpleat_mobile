@@ -17,29 +17,38 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+  const baseTheme = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+
+  const theme = {
+    ...baseTheme,
+    colors: {
+      ...baseTheme.colors,
+      background: '#F7F3EA',
+      border: 'transparent',
+    },
+  };
 
   return (
-    <ThemeProvider value={theme}>
-      <AuthRoutingProvider>
-        <AuthRedirect>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="(onboarding)"
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="modal"
-              options={{ presentation: 'modal', title: 'Modal' }}
-            />
-            <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'modal' }} />
-          </Stack>
-        </AuthRedirect>
-      </AuthRoutingProvider>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+      <ThemeProvider value={theme}>
+        <AuthRoutingProvider>
+          <AuthRedirect>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+              <Stack.Screen
+                  name="(onboarding)"
+                  options={{ headerShown: false }}
+              />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                  name="modal"
+                  options={{ presentation: 'modal', title: 'Modal' }}
+              />
+              <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'modal' }} />
+            </Stack>
+          </AuthRedirect>
+        </AuthRoutingProvider>
+        <StatusBar style="auto" />
+      </ThemeProvider>
   );
 }
