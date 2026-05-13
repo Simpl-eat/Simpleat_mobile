@@ -314,14 +314,17 @@ export default function MaCuisineScreen() {
 
       {/* MODAL DE MODIFICATION (Style Bottom Sheet) */}
       <Modal
-        transparent
-        visible={selectedStockLine !== null}
-        animationType="slide"
-        onRequestClose={() => setSelectedStockLine(null)}
+          transparent
+          visible={selectedStockLine !== null}
+          animationType="slide"
+          onRequestClose={() => setSelectedStockLine(null)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+            style={styles.modalOverlay}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <Pressable style={styles.modalBackdrop} onPress={() => setSelectedStockLine(null)} />
-          
+
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>
@@ -331,41 +334,41 @@ export default function MaCuisineScreen() {
             <View style={styles.modalInputGroup}>
               <ThemedText style={styles.modalLabel}>Modifier la quantité :</ThemedText>
               <TextInput
-                value={selectedStockLine ? (quantities[selectedStockLine.id] ?? String(selectedStockLine.quantity)) : ""}
-                onChangeText={(value) => {
-                  if (!selectedStockLine) return;
-                  setQuantity(selectedStockLine.id, value);
-                }}
-                placeholder="Nouvelle quantité"
-                keyboardType="decimal-pad"
-                style={styles.modalInput}
-                editable={selectedStockLine !== null}
+                  value={selectedStockLine ? (quantities[selectedStockLine.id] ?? String(selectedStockLine.quantity)) : ""}
+                  onChangeText={(value) => {
+                    if (!selectedStockLine) return;
+                    setQuantity(selectedStockLine.id, value);
+                  }}
+                  placeholder="Nouvelle quantité"
+                  keyboardType="decimal-pad"
+                  style={styles.modalInput}
+                  editable={selectedStockLine !== null}
               />
             </View>
 
             <View style={styles.modalActions}>
               <Pressable
-                style={styles.deleteBtn}
-                onPress={() => {
-                  if (!selectedStockLine) return;
-                  void removeStockLine(selectedStockLine);
-                }}
+                  style={styles.deleteBtn}
+                  onPress={() => {
+                    if (!selectedStockLine) return;
+                    void removeStockLine(selectedStockLine);
+                  }}
               >
                 <Ionicons name="trash-outline" size={24} color="#E55353" />
               </Pressable>
-              
+
               <Pressable
-                style={styles.applyBtn}
-                onPress={() => {
-                  if (!selectedStockLine) return;
-                  void updateStockLine(selectedStockLine);
-                }}
+                  style={styles.applyBtn}
+                  onPress={() => {
+                    if (!selectedStockLine) return;
+                    void updateStockLine(selectedStockLine);
+                  }}
               >
                 <ThemedText style={styles.applyBtnText}>Mettre à jour le stock</ThemedText>
               </Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </ThemedView>
   );
