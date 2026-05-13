@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -10,9 +11,9 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { supabase } from '@/lib/supabase';
 
@@ -32,16 +33,7 @@ function formatRegisterError(message: string) {
 
 export default function RegisterScreen() {
   const router = useRouter();
-  const isDark = useColorScheme() === 'dark';
-
-  const colors = {
-    background: isDark ? '#000' : '#fff',
-    text: isDark ? '#fff' : '#111',
-    muted: isDark ? '#A1A1AA' : '#666',
-    border: isDark ? '#2A2A2A' : '#ddd',
-    inputBg: isDark ? '#0B0B0B' : '#fff',
-    primary: '#4CAF50',
-  };
+  const insets = useSafeAreaInsets();
 
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -94,66 +86,63 @@ export default function RegisterScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.screen, { backgroundColor: colors.background }]}
+      style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: Math.max(20, insets.top + 8) },
+        ]}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
+        <View style={styles.mascotWrapper}>
+          <Image
+            source={require('@/assets/images/broco_waving.png')}
+            style={styles.mascot}
+            resizeMode="contain"
+          />
+        </View>
+
         <View style={styles.card}>
-          <Text style={[styles.title, { color: colors.text }]}>Inscription</Text>
-          <Text style={[styles.subtitle, { color: colors.muted }]}>
+          <Text style={styles.title}>Inscription</Text>
+          <Text style={styles.subtitle}>
             Crée ton compte avec ton email. Tu compléteras ton profil après la
             première connexion.
           </Text>
 
           {errorMessage ? (
-            <View style={[styles.errorBox, { borderColor: colors.border }]}>
-              <Text style={[styles.errorText, { color: colors.text }]}>
-                {errorMessage}
-              </Text>
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.text }]}>Email</Text>
+            <Text style={styles.label}>Email</Text>
             <TextInput
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
               placeholder="toi@email.com"
-              placeholderTextColor={colors.muted}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.inputBg,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
+              placeholderTextColor="#9CA3AF"
+              style={styles.input}
             />
           </View>
 
           <View style={styles.field}>
-            <Text style={[styles.label, { color: colors.text }]}>
+            <Text style={styles.label}>
               Mot de passe (min. 6 car.)
             </Text>
-            <View
-              style={[
-                styles.passwordContainer,
-                {
-                  backgroundColor: colors.inputBg,
-                  borderColor: colors.border,
-                },
-              ]}
-            >
+            <View style={styles.passwordContainer}>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
-                style={[styles.passwordInput, { color: colors.text }]}
+                style={styles.passwordInput}
+                placeholder="Ton mot de passe"
+                placeholderTextColor="#9CA3AF"
               />
               <TouchableOpacity
                 onPress={() => setShowPassword(!showPassword)}
@@ -162,7 +151,7 @@ export default function RegisterScreen() {
                 <Ionicons
                   name={showPassword ? 'eye-off-outline' : 'eye-outline'}
                   size={22}
-                  color={colors.muted}
+                  color="#6B7280"
                 />
               </TouchableOpacity>
             </View>
@@ -173,7 +162,6 @@ export default function RegisterScreen() {
             disabled={!canSubmit}
             style={[
               styles.button,
-              { backgroundColor: colors.primary },
               !canSubmit && styles.buttonDisabled,
             ]}
           >
@@ -189,11 +177,9 @@ export default function RegisterScreen() {
             disabled={loading}
             style={styles.linkButton}
           >
-            <Text style={[styles.linkText, { color: colors.muted }]}>
+            <Text style={styles.linkText}>
               Déjà un compte ?{' '}
-              <Text style={{ color: colors.text, fontWeight: '700' }}>
-                Se connecter
-              </Text>
+              <Text style={styles.linkTextStrong}>Se connecter</Text>
             </Text>
           </TouchableOpacity>
         </View>
@@ -203,57 +189,96 @@ export default function RegisterScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 20 },
-  card: { gap: 16 },
+  screen: { flex: 1, backgroundColor: '#F7F3EA' },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+  },
+  mascotWrapper: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  card: {
+    gap: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 30,
+    fontWeight: '800',
     textAlign: 'center',
     marginBottom: 4,
+    color: '#1F2937',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     textAlign: 'center',
     marginBottom: 6,
     lineHeight: 20,
+    color: '#6B7280',
+  },
+  mascot: {
+    width: 190,
+    height: 190,
   },
   field: { gap: 8 },
-  label: { fontSize: 14, fontWeight: '600' },
+  label: { fontSize: 14, fontWeight: '600', color: '#374151' },
   input: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     fontSize: 16,
+    color: '#111111',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 16,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
   },
   passwordInput: {
     flex: 1,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     fontSize: 16,
+    color: '#111111',
   },
   eyeIcon: {
     paddingHorizontal: 14,
   },
   button: {
     marginTop: 10,
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 15,
+    borderRadius: 16,
     alignItems: 'center',
+    backgroundColor: '#496943',
   },
   buttonDisabled: { opacity: 0.5 },
   buttonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   linkButton: { marginTop: 10, alignItems: 'center' },
-  linkText: { fontSize: 14 },
+  linkText: { fontSize: 14, color: '#6B7280' },
+  linkTextStrong: { color: '#1F2937', fontWeight: '700' },
   errorBox: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
+    borderColor: '#FFD7D7',
+    backgroundColor: '#FFF0F0',
   },
-  errorText: { fontSize: 14 },
+  errorText: { fontSize: 14, color: '#E55353' },
 });
