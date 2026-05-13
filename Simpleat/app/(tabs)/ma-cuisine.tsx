@@ -1,13 +1,21 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Modal,
+  Platform, // <-- AJOUTÉ
   Pressable,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
+  Text,     // <-- AJOUTÉ
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -22,39 +30,32 @@ type StockLineWithIngredient = UserStock & {
 };
 
 export default function MaCuisineScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { stockItems, ingredients, isLoading, error, reload } = useFridge();
+  
   const [search, setSearch] = useState("");
-  const [selectedIngredientId, setSelectedIngredientId] = useState<
-    number | null
-  >(null);
+  const [selectedIngredientId, setSelectedIngredientId] = useState<number | null>(null);
   const [quantities, setQuantities] = useState<QuantityMap>({});
   const [isSaving, setIsSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const router = useRouter();
-  const [selectedStockLine, setSelectedStockLine] =
-    useState<StockLineWithIngredient | null>(null);
+  const [selectedStockLine, setSelectedStockLine] = useState<StockLineWithIngredient | null>(null);
+  
+  const [refreshing, setRefreshing] = useState(false);
 
   const availableIngredients = useMemo(
-    () =>
-      ingredients.filter(
-        (ingredient) =>
-          !stockItems.some((item) => item.ingredient_id === ingredient.id),
-      ),
+    () => ingredients.filter((ingredient) => !stockItems.some((item) => item.ingredient_id === ingredient.id)),
     [ingredients, stockItems],
   );
 
   const normalizedSearch = search.trim().toLowerCase();
 
   const dropdownResults = useMemo(
-    () =>
-      availableIngredients.filter((ingredient) =>
-        (ingredient.name_fr ?? "").toLowerCase().includes(normalizedSearch),
-      ),
+    () => availableIngredients.filter((ingredient) => (ingredient.name_fr ?? "").toLowerCase().includes(normalizedSearch)),
     [availableIngredients, normalizedSearch],
   );
 
-  const showDropdown =
-    normalizedSearch.length > 0 && selectedIngredientId === null;
+  const showDropdown = normalizedSearch.length > 0 && selectedIngredientId === null;
 
   const canAddSelectedIngredient = useMemo(() => {
     if (selectedIngredientId === null) return false;
@@ -67,9 +68,14 @@ export default function MaCuisineScreen() {
     setQuantities((prev) => ({ ...prev, [key]: value }));
   }, []);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await reload();
+    setRefreshing(false);
+  };
+
   async function addIngredient(ingredientId: number) {
     setLocalError(null);
-
     const rawValue = quantities[ingredientId]?.trim() ?? "";
     const quantity = Number(rawValue.replace(",", "."));
 
@@ -79,16 +85,9 @@ export default function MaCuisineScreen() {
     }
 
     setIsSaving(true);
-
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user?.id) {
-        throw new Error(userError?.message ?? "Utilisateur non connecté.");
-      }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user?.id) throw new Error(userError?.message ?? "Utilisateur non connecté.");
 
       const { data: existingStock, error: fetchError } = await supabase
         .from("userStock")
@@ -98,21 +97,12 @@ export default function MaCuisineScreen() {
         .is("deleted_at", null)
         .maybeSingle();
 
-      if (fetchError) {
-        throw fetchError;
-      }
+      if (fetchError) throw fetchError;
 
       if (existingStock) {
-        await supabase
-          .from("userStock")
-          .update({ quantity })
-          .eq("id", existingStock.id);
+        await supabase.from("userStock").update({ quantity }).eq("id", existingStock.id);
       } else {
-        await supabase.from("userStock").insert({
-          user_id: user.id,
-          ingredient_id: ingredientId,
-          quantity,
-        });
+        await supabase.from("userStock").insert({ user_id: user.id, ingredient_id: ingredientId, quantity });
       }
 
       await reload();
@@ -120,11 +110,7 @@ export default function MaCuisineScreen() {
       setSearch("");
       setSelectedIngredientId(null);
     } catch (err) {
-      setLocalError(
-        err instanceof Error
-          ? err.message
-          : "Impossible d’ajouter l’ingrédient.",
-      );
+      setLocalError(err instanceof Error ? err.message : "Impossible d’ajouter l’ingrédient.");
     } finally {
       setIsSaving(false);
     }
@@ -132,7 +118,6 @@ export default function MaCuisineScreen() {
 
   async function updateStockLine(stockLine: UserStock) {
     setLocalError(null);
-
     const rawValue = quantities[stockLine.id]?.trim() ?? "";
     const quantity = Number(rawValue.replace(",", "."));
 
@@ -142,23 +127,14 @@ export default function MaCuisineScreen() {
     }
 
     setIsSaving(true);
-
     try {
-      const { error: updateError } = await supabase
-        .from("userStock")
-        .update({ quantity })
-        .eq("id", stockLine.id);
-
-      if (updateError) {
-        throw updateError;
-      }
+      const { error: updateError } = await supabase.from("userStock").update({ quantity }).eq("id", stockLine.id);
+      if (updateError) throw updateError;
 
       await reload();
       setSelectedStockLine(null);
     } catch (err) {
-      setLocalError(
-        err instanceof Error ? err.message : "Impossible de mettre à jour.",
-      );
+      setLocalError(err instanceof Error ? err.message : "Impossible de mettre à jour.");
     } finally {
       setIsSaving(false);
     }
@@ -167,44 +143,47 @@ export default function MaCuisineScreen() {
   async function removeStockLine(stockLine: UserStock) {
     setIsSaving(true);
     setLocalError(null);
-
     try {
-      const { error: deleteError } = await supabase
-        .from("userStock")
-        .delete()
-        .eq("id", stockLine.id);
-
-      if (deleteError) {
-        throw deleteError;
-      }
+      const { error: deleteError } = await supabase.from("userStock").delete().eq("id", stockLine.id);
+      if (deleteError) throw deleteError;
 
       await reload();
       setSelectedStockLine(null);
     } catch (err) {
-      setLocalError(
-        err instanceof Error ? err.message : "Impossible de supprimer.",
-      );
+      setLocalError(err instanceof Error ? err.message : "Impossible de supprimer.");
     } finally {
       setIsSaving(false);
     }
   }
 
   return (
-    <ThemedView style={styles.screen}>
-      <View style={styles.container}>
+    <ThemedView style={[styles.screen, { paddingTop: Math.max(0, insets.top - 15) }]}>
+      
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent} 
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#496943']} tintColor={'#496943'} />
+        }
+      >
+        
+        {/* HEADER */}
         <View style={styles.header}>
-          <ThemedText type="title" style={styles.whiteText}>
-            Ma cuisine
-          </ThemedText>
-          <ThemedText style={[styles.subtitle, styles.whiteText]}>
-            Ajoute des ingrédients et indique combien tu en as.
-          </ThemedText>
+          <View style={styles.headerTop}>
+            <Image source={require('@/assets/images/broco_waving.png')} style={styles.mascot} resizeMode="contain" />
+            <View style={styles.headerTextContainer}>
+              <ThemedText type="title" style={styles.title}>Ma cuisine</ThemedText>
+              <ThemedText style={styles.subtitle}>Ajoute tes ingrédients ici.</ThemedText>
+            </View>
+          </View>
         </View>
 
-        {(isLoading || isSaving) && (
+        {/* FEEDBACK & ERREURS */}
+        {(isLoading || isSaving) && !refreshing && (
           <View style={styles.statusRow}>
-            <ActivityIndicator size="small" />
-            <ThemedText style={styles.whiteText}>
+            <ActivityIndicator size="small" color="#496943" />
+            <ThemedText style={styles.statusText}>
               {isSaving ? "Enregistrement…" : "Chargement…"}
             </ThemedText>
           </View>
@@ -212,48 +191,51 @@ export default function MaCuisineScreen() {
 
         {(error || localError) && (
           <View style={styles.errorBox}>
-            <ThemedText type="subtitle" style={styles.whiteText}>
-              Erreur
-            </ThemedText>
-            <ThemedText style={styles.whiteText}>
-              {error?.message ?? localError}
-            </ThemedText>
+            <Ionicons name="alert-circle" size={20} color="#E55353" />
+            <View style={{ flex: 1 }}>
+              <ThemedText style={styles.errorTitle}>Erreur</ThemedText>
+              <ThemedText style={styles.errorText}>{error?.message ?? localError}</ThemedText>
+            </View>
           </View>
         )}
 
+        {/* SECTION AJOUTER & SCAN */}
         <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.whiteText}>
-            Ajouter un ingrédient
-          </ThemedText>
+          
           <Pressable
-              style={[styles.button, { backgroundColor: '#4CAF50', marginBottom: 10, alignItems: 'center' }]}
-              onPress={() => router.push('/scan')}
+            style={styles.scanButton}
+            onPress={() => router.push('/scan' as any)} // <-- CORRECTION ICI
           >
-            <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
-              Scanner votre article
-            </ThemedText>
+            <Ionicons name="barcode-outline" size={22} color="#FFFFFF" />
+            <ThemedText style={styles.scanButtonText}>Scanner un article</ThemedText>
           </Pressable>
+
           <View style={styles.addRow}>
             <View style={styles.searchContainer}>
-              <TextInput
-                value={search}
-                onChangeText={(value) => {
-                  setSearch(value);
-                  setSelectedIngredientId(null);
-                }}
-                placeholder="Rechercher un ingrédient"
-                style={styles.input}
-              />
+              <View style={styles.searchBar}>
+                <Ionicons name="search" size={20} color="#9CA3AF" style={styles.searchIcon} />
+                <TextInput
+                  value={search}
+                  onChangeText={(value) => {
+                    setSearch(value);
+                    setSelectedIngredientId(null);
+                  }}
+                  placeholder="Ex: Tomate, Poulet..."
+                  placeholderTextColor="#9CA3AF"
+                  style={styles.searchInput}
+                />
+              </View>
+
+              {/* DROPDOWN RECHERCHE */}
               {showDropdown && (
                 <View style={styles.dropdown}>
                   <FlatList<Ingredient>
                     data={dropdownResults}
                     keyExtractor={(item) => `dropdown-${item.id}`}
                     keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled={true}
                     ListEmptyComponent={
-                      <ThemedText style={styles.dropdownEmptyText}>
-                        Aucun résultat.
-                      </ThemedText>
+                      <ThemedText style={styles.dropdownEmptyText}>Aucun résultat.</ThemedText>
                     }
                     renderItem={({ item }) => (
                       <Pressable
@@ -263,9 +245,7 @@ export default function MaCuisineScreen() {
                           setSearch(item.name_fr ?? "");
                         }}
                       >
-                        <ThemedText style={styles.dropdownItemText}>
-                          {item.name_fr}
-                        </ThemedText>
+                        <ThemedText style={styles.dropdownItemText}>{item.name_fr}</ThemedText>
                       </Pressable>
                     )}
                   />
@@ -274,119 +254,114 @@ export default function MaCuisineScreen() {
             </View>
 
             <TextInput
-              value={
-                selectedIngredientId === null
-                  ? ""
-                  : (quantities[selectedIngredientId] ?? "")
-              }
+              value={selectedIngredientId === null ? "" : (quantities[selectedIngredientId] ?? "")}
               onChangeText={(value) => {
                 if (selectedIngredientId === null) return;
                 setQuantity(selectedIngredientId, value);
               }}
               placeholder="Qté"
+              placeholderTextColor="#9CA3AF"
               keyboardType="decimal-pad"
               style={[styles.input, styles.quantityInput]}
               editable={selectedIngredientId !== null}
             />
 
             <Pressable
-              style={[
-                styles.button,
-                styles.addButton,
-                (!canAddSelectedIngredient || isSaving) &&
-                  styles.buttonDisabled,
-              ]}
+              style={[styles.addButton, (!canAddSelectedIngredient || isSaving) && styles.buttonDisabled]}
               disabled={!canAddSelectedIngredient || isSaving}
               onPress={() => {
                 if (selectedIngredientId === null) return;
                 void addIngredient(selectedIngredientId);
               }}
             >
-              <ThemedText style={styles.addButtonLabel}>Ajouter</ThemedText>
+              <Ionicons name="add" size={24} color="#FFFFFF" />
             </Pressable>
           </View>
+        </View>
 
-          <ThemedText type="subtitle" style={styles.whiteText}>
-            Stock actuel
+        {/* SECTION STOCK ACTUEL */}
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>
+            Mon Stock ({stockItems.length})
           </ThemedText>
+          
           {stockItems.length === 0 ? (
-            <ThemedText style={styles.whiteText}>
-              Aucun ingrédient enregistré.
-            </ThemedText>
+            <View style={styles.emptyStock}>
+              <Ionicons name="basket-outline" size={48} color="#C4C4C4" />
+              <ThemedText style={styles.emptyStockText}>Ton frigo est vide !</ThemedText>
+            </View>
           ) : (
             <View style={styles.stockGrid}>
               {stockItems.map((stockLine) => (
                 <View key={stockLine.id} style={styles.stockCell}>
                   <Pressable
-                    style={styles.stockRow}
+                    style={styles.stockCard}
                     onPress={() => setSelectedStockLine(stockLine)}
                   >
-                    <ThemedText
-                      style={[styles.stockName, styles.whiteText]}
-                      numberOfLines={2}
-                    >
+                    <ThemedText style={styles.stockName} numberOfLines={2}>
                       {stockLine.ingredient?.name_fr ?? "Ingrédient inconnu"}
                     </ThemedText>
-                    <ThemedText style={styles.whiteText}>
-                      Quantité: {stockLine.quantity}
-                    </ThemedText>
+                    <View style={styles.stockQtyBadge}>
+                      <ThemedText style={styles.stockQtyText}>{stockLine.quantity}</ThemedText>
+                    </View>
                   </Pressable>
                 </View>
               ))}
             </View>
           )}
         </View>
-      </View>
+      </ScrollView>
 
+      {/* MODAL DE MODIFICATION (Style Bottom Sheet) */}
       <Modal
         transparent
         visible={selectedStockLine !== null}
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setSelectedStockLine(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <ThemedText type="subtitle" style={styles.stockName}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setSelectedStockLine(null)} />
+          
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>
               {selectedStockLine?.ingredient?.name_fr ?? "Ingrédient inconnu"}
-            </ThemedText>
+            </Text>
 
-            <TextInput
-              value={
-                selectedStockLine
-                  ? (quantities[selectedStockLine.id] ??
-                    String(selectedStockLine.quantity))
-                  : ""
-              }
-              onChangeText={(value) => {
-                if (!selectedStockLine) return;
-                setQuantity(selectedStockLine.id, value);
-              }}
-              placeholder="Quantité"
-              keyboardType="decimal-pad"
-              style={styles.input}
-              editable={selectedStockLine !== null}
-            />
-
-            <View style={styles.stockActions}>
-              <Pressable
-                style={styles.button}
-                onPress={() => {
+            <View style={styles.modalInputGroup}>
+              <ThemedText style={styles.modalLabel}>Modifier la quantité :</ThemedText>
+              <TextInput
+                value={selectedStockLine ? (quantities[selectedStockLine.id] ?? String(selectedStockLine.quantity)) : ""}
+                onChangeText={(value) => {
                   if (!selectedStockLine) return;
-                  void updateStockLine(selectedStockLine);
+                  setQuantity(selectedStockLine.id, value);
                 }}
-              >
-                <ThemedText type="link" style={styles.whiteText}>
-                  Modifier
-                </ThemedText>
-              </Pressable>
+                placeholder="Nouvelle quantité"
+                keyboardType="decimal-pad"
+                style={styles.modalInput}
+                editable={selectedStockLine !== null}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
               <Pressable
-                style={[styles.button, styles.deleteButton]}
+                style={styles.deleteBtn}
                 onPress={() => {
                   if (!selectedStockLine) return;
                   void removeStockLine(selectedStockLine);
                 }}
               >
-                <ThemedText style={styles.deleteLabel}>Supprimer</ThemedText>
+                <Ionicons name="trash-outline" size={24} color="#E55353" />
+              </Pressable>
+              
+              <Pressable
+                style={styles.applyBtn}
+                onPress={() => {
+                  if (!selectedStockLine) return;
+                  void updateStockLine(selectedStockLine);
+                }}
+              >
+                <ThemedText style={styles.applyBtnText}>Mettre à jour le stock</ThemedText>
               </Pressable>
             </View>
           </View>
@@ -397,169 +372,75 @@ export default function MaCuisineScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#F7F3EA",
-  },
-  container: {
-    padding: 16,
-    gap: 16,
-  },
-  header: {
-    gap: 8,
-  },
-  subtitle: {
-    opacity: 0.8,
-  },
-  section: {
-    gap: 12,
-  },
-  addRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-  },
-  searchContainer: {
-    flex: 1,
-    position: "relative",
-    zIndex: 10,
-  },
-  dropdown: {
-    marginTop: 6,
-    maxHeight: 220,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#D9D9D9",
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-  },
-  dropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EFEFEF",
-  },
-  dropdownItemText: {
-    color: "#1F1F1F",
-  },
-  dropdownEmptyText: {
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    color: "#6B6B6B",
-  },
-  statusRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  errorBox: {
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "#FFE8E8",
-    borderWidth: 1,
-    borderColor: "#E55353",
-  },
-  stockGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    marginHorizontal: -4,
-  },
-  stockCell: {
-    width: "33.333%",
-    paddingHorizontal: 4,
-    marginBottom: 8,
-  },
-  stockRow: {
-    flex: 1,
-    minHeight: 100,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: "#4F7343",
-    borderWidth: 1,
-    borderColor: "#D9D9D9",
-    gap: 8,
-    justifyContent: "space-between",
-  },
-  stockName: {
-    fontWeight: "700",
-    color: "black",
-  },
-  stockActions: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  ingredientCell: {
-    width: "25%",
-    padding: 4,
-  },
-  ingredientRow: {
-    height: 180,
-    justifyContent: "space-between",
-    gap: 8,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: "#4F7343",
-    borderWidth: 1,
-    borderColor: "#D9D9D9",
-  },
-  ingredientName: {
-    minHeight: 40,
-  },
-  ingredientInfo: {
-    flex: 1,
-    gap: 8,
-  },
-  input: {
-    minWidth: 0,
-    borderWidth: 1,
-    borderColor: "#D9D9D9",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#FAFAFA",
-  },
-  quantityInput: {
-    width: 90,
-  },
-  button: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "#d5cb01",
-  },
-  addButton: {
-    height: 44,
-    justifyContent: "center",
-  },
-  addButtonLabel: {
-    color: "#1F1F1F",
-    fontWeight: "700",
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  deleteButton: {
-    backgroundColor: "#E55353",
-  },
-  deleteLabel: {
-    color: "#FFFFFF",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    justifyContent: "center",
-    padding: 20,
-  },
-  modalCard: {
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    gap: 12,
-  },
-  listContainer: {
-    paddingBottom: 24,
-  },
-  whiteText: {
-    color: "#000000",
-  },
+  screen: { flex: 1, backgroundColor: "#F7F3EA" },
+  scrollContent: { padding: 16, paddingBottom: 40, gap: 24 },
+  
+  // HEADER
+  header: { marginBottom: 8 },
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  mascot: { width: 65, height: 65 },
+  headerTextContainer: { flex: 1, justifyContent: 'center' },
+  title: { fontSize: 30, fontWeight: '800', color: '#1F2937' },
+  subtitle: { fontSize: 16, color: '#6B7280', marginTop: -2 },
+
+  // ÉTATS & ERREURS
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8 },
+  statusText: { color: "#496943", fontWeight: "600" },
+  errorBox: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 16, backgroundColor: "#FFF0F0", borderWidth: 1, borderColor: "#FFE0E0" },
+  errorTitle: { fontWeight: '700', color: '#E55353', fontSize: 16 },
+  errorText: { color: '#E55353', marginTop: 4 },
+
+  // SECTIONS
+  section: { gap: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#496943' },
+
+  // BOUTON SCAN
+  scanButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#496943', paddingVertical: 14, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+  scanButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
+
+  // AJOUTER (SEARCH BAR)
+  addRow: { flexDirection: "row", gap: 10, zIndex: 10 },
+  searchContainer: { flex: 1, position: "relative", zIndex: 10 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#EAEAEA', paddingHorizontal: 12, height: 50 },
+  searchIcon: { marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 16, color: '#111111' },
+  
+  input: { backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#EAEAEA', paddingHorizontal: 12, fontSize: 16, color: '#111111', height: 50, textAlign: 'center' },
+  quantityInput: { width: 70 },
+  
+  addButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: "#496943", alignItems: "center", justifyContent: "center", shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+  buttonDisabled: { opacity: 0.5 },
+
+  // DROPDOWN
+  dropdown: { position: 'absolute', top: 55, left: 0, right: 0, maxHeight: 220, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#EAEAEA", shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 5, zIndex: 50 },
+  dropdownItem: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "#F5F5F5" },
+  dropdownItemText: { color: "#1F2937", fontSize: 16, fontWeight: '500' },
+  dropdownEmptyText: { padding: 16, color: "#9CA3AF", textAlign: 'center' },
+
+  // STOCK GRID (2 COLONNES)
+  stockGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: 'space-between' },
+  stockCell: { width: "48%", marginBottom: 16 },
+  stockCard: { backgroundColor: "#EBE9DF", borderRadius: 18, padding: 16, minHeight: 90, justifyContent: "space-between", shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  stockName: { fontSize: 15, fontWeight: "700", color: "#496943", marginBottom: 12 },
+  stockQtyBadge: { backgroundColor: '#FFFFFF', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
+  stockQtyText: { fontSize: 14, fontWeight: '800', color: '#111111' },
+
+  emptyStock: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, backgroundColor: '#FFFFFF', borderRadius: 24, borderWidth: 1, borderColor: '#EAEAEA', borderStyle: 'dashed' },
+  emptyStockText: { color: '#9CA3AF', fontSize: 16, fontWeight: '600', marginTop: 12 },
+
+  // MODAL (Style Bottom Sheet)
+  modalOverlay: { flex: 1, justifyContent: "flex-end" },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.4)" },
+  bottomSheet: { backgroundColor: '#F7F3EA', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  sheetHandle: { width: 45, height: 5, backgroundColor: '#D1D5DB', borderRadius: 3, alignSelf: 'center', marginBottom: 20 },
+  sheetTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937', marginBottom: 24, textAlign: 'center' },
+  
+  modalLabel: { fontSize: 14, color: '#6B7280', marginBottom: 8, fontWeight: '600' },
+  modalInputGroup: { marginBottom: 30 },
+  modalInput: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16, fontSize: 20, color: '#111111', fontWeight: 'bold', textAlign: 'center', borderWidth: 1, borderColor: '#EAEAEA' },
+  
+  modalActions: { flexDirection: 'row', gap: 12 },
+  deleteBtn: { width: 60, height: 60, borderRadius: 20, backgroundColor: '#FFE8E8', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#FFE0E0' },
+  applyBtn: { flex: 1, height: 60, borderRadius: 20, backgroundColor: '#496943', alignItems: 'center', justifyContent: 'center' },
+  applyBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });
