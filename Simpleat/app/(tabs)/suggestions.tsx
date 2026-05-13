@@ -8,6 +8,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Switch,
   Text,
@@ -42,6 +43,7 @@ function getDietColumn(diet: string | undefined): string | null {
   }
 }
 
+// Fonction pour rendre un nom de base de données propre (ex: petit_dejeuner -> Petit dejeuner)
 function formatFilterLabel(raw: string) {
   if (!raw) return '';
   const formatted = raw.replace(/_/g, ' ');
@@ -62,7 +64,8 @@ export default function SuggestionsScreen() {
   // --- ÉTATS UI ---
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1); // État pour la pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
 
   // --- ÉTATS FILTRES ---
   const [search, setSearch] = useState('');
@@ -82,7 +85,14 @@ export default function SuggestionsScreen() {
     search, dietColumn, timeFilter, lunchType, category, area, onlyFromStock,
   }), [search, dietColumn, timeFilter, lunchType, category, area, onlyFromStock]);
 
-  const { recipes, isLoading, filterOptions } = useFilteredRecipes(filters);
+  const { recipes, isLoading, filterOptions, refetch } = useFilteredRecipes(filters);
+
+  // --- LOGIQUE DE REFRESH ---
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
   // --- GESTION DE LA PAGINATION ---
   // Réinitialiser à la page 1 si on change les filtres ou la recherche
@@ -153,8 +163,8 @@ export default function SuggestionsScreen() {
     </View>
   ), [preferences, togglePreference, viewMode]);
 
-  // --- EN-TÊTE ---
-  const ListHeader = useMemo(() => (
+  // --- EN-TÊTE FIXE (En dehors de la FlatList) ---
+  const Header = useMemo(() => (
     <View style={styles.headerContainer}>
       <View style={styles.headerTop}>
         <Image source={require('@/assets/images/broco_cooking.png')} style={styles.mascot} resizeMode="contain" />
@@ -166,7 +176,7 @@ export default function SuggestionsScreen() {
 
       <SearchBar value={search} onChangeText={setSearch} />
 
-      <Pressable style={styles.tinderCta} onPress={() => console.log('Go to Tinder Food')}>
+      <Pressable style={styles.tinderCta} onPress={() => router.push('/(tabs)/tinder')}>
         <View style={styles.tinderIconBg}>
           <Ionicons name="flame" size={22} color="#FF5864" />
         </View>
@@ -237,7 +247,6 @@ export default function SuggestionsScreen() {
           </View>
         )}
         
-        {/* Info dynamique en bas peu importe s'il y a 1 ou N pages */}
         <Text style={styles.totalCountFooter}>
           {recipes.length} recette{recipes.length > 1 ? 's' : ''} au total
         </Text>
@@ -248,22 +257,32 @@ export default function SuggestionsScreen() {
   return (
     <View style={[styles.screen, { paddingTop: Math.max(0, insets.top - 15) }]}>
       
+      {/* L'EN-TÊTE FIXE POUR QUE LE REFRESH NE S'APPLIQUE QU'AUX CARTES */}
+      {Header}
+
       <FlatList
         ref={flatListRef}
         key={viewMode}
         data={displayedRecipes}
         renderItem={renderItem}
         keyExtractor={(item) => String(item.id)}
-        ListHeaderComponent={ListHeader}
         ListFooterComponent={renderPagination}
         numColumns={viewMode === 'grid' ? 2 : 1}
         contentContainerStyle={styles.listContent}
         columnWrapperStyle={viewMode === 'grid' ? styles.row : undefined}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={['#496943']} 
+            tintColor={'#496943'} 
+          />
+        }
       />
 
-      {/* BOTTOM SHEET MODAL */}
+      {/* BOTTOM SHEET MODAL (Sans flou) */}
       <Modal visible={isFilterModalOpen} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsFilterModalOpen(false)} />
@@ -321,7 +340,7 @@ export default function SuggestionsScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#F7F3EA' },
   listContent: { paddingHorizontal: 16, paddingBottom: 40 },
-  headerContainer: { gap: 14, paddingTop: 12, paddingBottom: 16 },
+  headerContainer: { gap: 14, paddingTop: 12, paddingBottom: 16, paddingHorizontal: 16 },
   
   headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   mascot: { width: 65, height: 65 },

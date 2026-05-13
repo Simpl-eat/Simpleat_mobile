@@ -113,7 +113,7 @@ export function useFilteredRecipes(filters: SuggestionFilters): UseFilteredRecip
     async function loadOptions() {
       const { data } = await supabase
         .from('recipe')
-        .select('lunch_type, str_category, str_area')
+        .select('lunch_type, str_category_fr, str_area_fr')
         .is('deleted_at', null)
         .limit(3000);
 
@@ -124,8 +124,8 @@ export function useFilteredRecipes(filters: SuggestionFilters): UseFilteredRecip
 
       setFilterOptions({
         lunchTypes: unique(data.map((r) => r.lunch_type)),
-        categories: unique(data.map((r) => r.str_category)),
-        areas: unique(data.map((r) => r.str_area)),
+        categories: unique(data.map((r) => r.str_category_fr)),
+        areas: unique(data.map((r) => r.str_area_fr)),
       });
     }
     loadOptions();
@@ -187,10 +187,10 @@ export function useFilteredRecipes(filters: SuggestionFilters): UseFilteredRecip
         query = query.eq('lunch_type', filters.lunchType);
       }
       if (filters.category) {
-        query = query.eq('str_category', filters.category);
+        query = query.eq('str_category_fr', filters.category);
       }
       if (filters.area) {
-        query = query.eq('str_area', filters.area);
+        query = query.eq('str_area_fr', filters.area);
       }
       if (eligibleIds) {
         query = query.in('id', eligibleIds);

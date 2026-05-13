@@ -9,8 +9,8 @@ export type Recipe = {
   description: string | null;
   step: string;
   image: string | null;
-  str_category: string | null;
-  str_area: string | null;
+  str_category_fr: string | null;
+  str_area_fr: string | null;
   name_fr: string | null;
   description_fr: string | null;
   step_fr: string;
