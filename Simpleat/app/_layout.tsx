@@ -35,6 +35,7 @@ export default function RootLayout() {
               name="modal"
               options={{ presentation: 'modal', title: 'Modal' }}
             />
+            <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'modal' }} />
           </Stack>
         </AuthRedirect>
       </AuthRoutingProvider>

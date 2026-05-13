@@ -30,6 +30,7 @@ export default function MaCuisineScreen() {
   const [quantities, setQuantities] = useState<QuantityMap>({});
   const [isSaving, setIsSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const router = useRouter();
   const [selectedStockLine, setSelectedStockLine] =
     useState<StockLineWithIngredient | null>(null);
 
@@ -224,6 +225,14 @@ export default function MaCuisineScreen() {
           <ThemedText type="subtitle" style={styles.whiteText}>
             Ajouter un ingrédient
           </ThemedText>
+          <Pressable
+              style={[styles.button, { backgroundColor: '#4CAF50', marginBottom: 10, alignItems: 'center' }]}
+              onPress={() => router.push('/scan')}
+          >
+            <ThemedText style={{ color: '#fff', fontWeight: 'bold' }}>
+              Scanner votre article
+            </ThemedText>
+          </Pressable>
           <View style={styles.addRow}>
             <View style={styles.searchContainer}>
               <TextInput
