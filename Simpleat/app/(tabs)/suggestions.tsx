@@ -1,11 +1,14 @@
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
+  Modal,
+  Platform,
   Pressable,
+  RefreshControl,
   StyleSheet,
   Switch,
   Text,
@@ -23,36 +26,29 @@ import {
 } from '@/hooks/useFilteredRecipes';
 import { useProfile } from '@/hooks/useProfile';
 import { useRecipePreferences } from '@/hooks/useRecipePreference';
-import { DIET_GOAL_LABELS } from '@/lib/diet-goal-labels';
 import type { Recipe } from '@/lib/types/recipe';
 
-// ---------------------------------------------------------------------------
-// Diet → Supabase column mapping
-// ---------------------------------------------------------------------------
+const ITEMS_PER_PAGE = 10; // Nombre de recettes par page
 
 function getDietColumn(diet: string | undefined): string | null {
   switch (diet) {
-    case 'Vegan':
-      return 'vegan';
-    case 'Vegetarian':
-      return 'vegetarian';
-    case 'Keto':
-      return 'keto';
-    case 'Dukan':
-      return 'dukan';
+    case 'Vegan': return 'vegan';
+    case 'Vegetarian': return 'vegetarian';
+    case 'Keto': return 'keto';
+    case 'Dukan': return 'dukan';
     case 'Mediterranean':
-    case 'Pesco-vegetarian':
-      return 'mediterranean';
-    case 'Carnivore':
-      return 'carnivore';
-    default:
-      return null;
+    case 'Pesco-vegetarian': return 'mediterranean';
+    case 'Carnivore': return 'carnivore';
+    default: return null;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Static filter options
-// ---------------------------------------------------------------------------
+// Fonction pour rendre un nom de base de données propre (ex: petit_dejeuner -> Petit dejeuner)
+function formatFilterLabel(raw: string) {
+  if (!raw) return '';
+  const formatted = raw.replace(/_/g, ' ');
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1).toLowerCase();
+}
 
 const TIME_OPTIONS: FilterOption[] = [
   { key: '15', label: '< 15 min' },
@@ -61,18 +57,17 @@ const TIME_OPTIONS: FilterOption[] = [
   { key: '60+', label: '> 1 h' },
 ];
 
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
-
 export default function SuggestionsScreen() {
   const insets = useSafeAreaInsets();
+  const flatListRef = useRef<FlatList>(null); // Référence pour scroller en haut
 
-  // Data hooks
-  const { profile } = useProfile();
-  const { preferences, togglePreference } = useRecipePreferences();
+  // --- ÉTATS UI ---
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Filter state
+  // --- ÉTATS FILTRES ---
   const [search, setSearch] = useState('');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>(null);
   const [lunchType, setLunchType] = useState<string | null>(null);
@@ -80,40 +75,62 @@ export default function SuggestionsScreen() {
   const [area, setArea] = useState<string | null>(null);
   const [onlyFromStock, setOnlyFromStock] = useState(false);
 
+  // --- HOOKS DE DONNÉES ---
+  const { profile } = useProfile();
+  const { preferences, togglePreference } = useRecipePreferences();
+
   const dietColumn = useMemo(() => getDietColumn(profile?.diet), [profile?.diet]);
 
-  const filters: SuggestionFilters = useMemo(
-    () => ({
-      search,
-      dietColumn,
-      timeFilter,
-      lunchType,
-      category,
-      area,
-      onlyFromStock,
-    }),
-    [search, dietColumn, timeFilter, lunchType, category, area, onlyFromStock],
-  );
+  const filters: SuggestionFilters = useMemo(() => ({
+    search, dietColumn, timeFilter, lunchType, category, area, onlyFromStock,
+  }), [search, dietColumn, timeFilter, lunchType, category, area, onlyFromStock]);
 
-  const { recipes, isLoading, error, filterOptions, refetch } = useFilteredRecipes(filters);
+  const { recipes, isLoading, filterOptions, refetch } = useFilteredRecipes(filters);
 
-  // Derived filter options from DB data
-  const lunchTypeOptions: FilterOption[] = useMemo(
-    () => filterOptions.lunchTypes.map((v) => ({ key: v, label: v })),
-    [filterOptions.lunchTypes],
-  );
+  // --- LOGIQUE DE REFRESH ---
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  }, [refetch]);
 
-  const categoryOptions: FilterOption[] = useMemo(
-    () => filterOptions.categories.map((v) => ({ key: v, label: v })),
-    [filterOptions.categories],
-  );
+  // --- GESTION DE LA PAGINATION ---
+  // Réinitialiser à la page 1 si on change les filtres ou la recherche
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [recipes]);
 
-  const areaOptions: FilterOption[] = useMemo(
-    () => filterOptions.areas.map((v) => ({ key: v, label: v })),
-    [filterOptions.areas],
-  );
+  const totalPages = Math.ceil(recipes.length / ITEMS_PER_PAGE);
 
-  // Active filter count (for quick visual feedback)
+  // Extraire uniquement les recettes de la page courante
+  const displayedRecipes = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return recipes.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [recipes, currentPage]);
+
+  const scrollToTop = () => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  };
+
+  const handlePrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage((prev) => prev - 1);
+      scrollToTop();
+    }
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage((prev) => prev + 1);
+      scrollToTop();
+    }
+  };
+
+  // --- OPTIONS DE FILTRES FORMATÉES ---
+  const lunchTypeOptions = useMemo(() => filterOptions.lunchTypes.map((v) => ({ key: v, label: formatFilterLabel(v) })), [filterOptions.lunchTypes]);
+  const categoryOptions = useMemo(() => filterOptions.categories.map((v) => ({ key: v, label: formatFilterLabel(v) })), [filterOptions.categories]);
+  const areaOptions = useMemo(() => filterOptions.areas.map((v) => ({ key: v, label: formatFilterLabel(v) })), [filterOptions.areas]);
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (timeFilter) count++;
@@ -125,7 +142,6 @@ export default function SuggestionsScreen() {
   }, [timeFilter, lunchType, category, area, onlyFromStock]);
 
   const clearFilters = useCallback(() => {
-    setSearch('');
     setTimeFilter(null);
     setLunchType(null);
     setCategory(null);
@@ -133,308 +149,249 @@ export default function SuggestionsScreen() {
     setOnlyFromStock(false);
   }, []);
 
-  // Navigation
-  const goToRecipe = useCallback((id: number) => {
-    router.push({
-      pathname: '/(tabs)/(protected)/receipe/[id]',
-      params: { id: String(id) },
-    });
-  }, []);
+  // --- RENDU D'UNE CARTE ---
+  const renderItem = useCallback(({ item }: { item: Recipe }) => (
+    <View style={viewMode === 'grid' ? styles.gridItemWrapper : styles.listItemWrapper}>
+      <RecipeCard
+        recipe={item}
+        preference={preferences.get(item.id)}
+        viewMode={viewMode}
+        onPress={() => router.push(`/(tabs)/(protected)/receipe/${item.id}`)}
+        onLike={() => togglePreference(item.id, true)}
+        onDislike={() => togglePreference(item.id, false)}
+      />
+    </View>
+  ), [preferences, togglePreference, viewMode]);
 
-  // Diet label for the info badge
-  const dietLabel = profile?.diet ? (DIET_GOAL_LABELS[profile.diet] ?? profile.diet) : null;
-  const showDietBadge = dietColumn != null && dietLabel != null;
-
-  // Render
-  const renderItem = useCallback(
-    ({ item }: { item: Recipe }) => (
-      <View style={styles.cardWrapper}>
-        <RecipeCard
-          recipe={item}
-          preference={preferences.get(item.id)}
-          onPress={() => goToRecipe(item.id)}
-          onLike={() => togglePreference(item.id, true)}
-          onDislike={() => togglePreference(item.id, false)}
-        />
+  // --- EN-TÊTE FIXE (En dehors de la FlatList) ---
+  const Header = useMemo(() => (
+    <View style={styles.headerContainer}>
+      <View style={styles.headerTop}>
+        <Image source={require('@/assets/images/broco_cooking.png')} style={styles.mascot} resizeMode="contain" />
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.title}>Suggestions</Text>
+          <Text style={styles.subtitle}>Trouve la recette parfaite pour toi</Text>
+        </View>
       </View>
-    ),
-    [preferences, goToRecipe, togglePreference],
-  );
 
-  const keyExtractor = useCallback((item: Recipe) => String(item.id), []);
+      <SearchBar value={search} onChangeText={setSearch} />
 
-  const ListHeader = useMemo(
-    () => (
-      <View style={styles.headerContainer}>
-        {/* Title */}
-        <Text style={styles.title}>Suggestions</Text>
-        <Text style={styles.subtitle}>Trouve la recette parfaite pour toi</Text>
+      <Pressable style={styles.tinderCta} onPress={() => router.push('/(tabs)/tinder')}>
+        <View style={styles.tinderIconBg}>
+          <Ionicons name="flame" size={22} color="#FF5864" />
+        </View>
+        <Text style={styles.tinderCtaText}>Tinder Food</Text>
+        <Ionicons name="chevron-forward" size={20} color="#FF5864" style={styles.tinderChevron} />
+      </Pressable>
 
-        {/* Search */}
-        <SearchBar value={search} onChangeText={setSearch} />
-
-        {/* Diet badge */}
-        {showDietBadge && (
-          <View style={styles.dietBadge}>
-            <MaterialCommunityIcons name="leaf" size={14} color="#4A6332" />
-            <Text style={styles.dietBadgeText}>Régime : {dietLabel}</Text>
-          </View>
-        )}
-
-        {/* "À partir de ce que j'ai" toggle */}
-        <Pressable
-          style={styles.stockToggle}
-          onPress={() => setOnlyFromStock((v) => !v)}
+      <View style={styles.toolsRow}>
+        <Pressable 
+          style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]} 
+          onPress={() => setIsFilterModalOpen(true)}
         >
-          <View style={styles.stockToggleLeft}>
-            <MaterialCommunityIcons
-              name="fridge-outline"
-              size={20}
-              color={onlyFromStock ? '#4A6332' : '#6B7280'}
-            />
-            <Text style={[styles.stockToggleText, onlyFromStock && styles.stockToggleTextActive]}>
-              À partir de ce que j'ai
-            </Text>
-          </View>
-          <Switch
-            value={onlyFromStock}
-            onValueChange={setOnlyFromStock}
-            trackColor={{ false: '#D1D5DB', true: '#A8C699' }}
-            thumbColor={onlyFromStock ? '#4A6332' : '#F9FAFB'}
-          />
+          <Ionicons name="options-outline" size={20} color={activeFilterCount > 0 ? "#FFFFFF" : "#496943"} />
+          <Text style={[styles.filterBtnText, activeFilterCount > 0 && { color: '#FFFFFF' }]}>
+            Filtres {activeFilterCount > 0 ? `(${activeFilterCount})` : ''}
+          </Text>
         </Pressable>
 
-        {/* Filters */}
-        <FilterChips
-          label="Temps de préparation"
-          options={TIME_OPTIONS}
-          selected={timeFilter}
-          onSelect={(key) => setTimeFilter(key as TimeFilter)}
-        />
-
-        <FilterChips
-          label="Type de repas"
-          options={lunchTypeOptions}
-          selected={lunchType}
-          onSelect={setLunchType}
-        />
-
-        <FilterChips
-          label="Catégorie"
-          options={categoryOptions}
-          selected={category}
-          onSelect={setCategory}
-        />
-
-        <FilterChips
-          label="Origine"
-          options={areaOptions}
-          selected={area}
-          onSelect={setArea}
-        />
-
-        {/* Active filter count + clear */}
-        {activeFilterCount > 0 && (
-          <Pressable style={styles.clearRow} onPress={clearFilters}>
-            <Text style={styles.clearText}>
-              {activeFilterCount} filtre{activeFilterCount > 1 ? 's' : ''} actif
-              {activeFilterCount > 1 ? 's' : ''}
-            </Text>
-            <Text style={styles.clearBtn}>Tout effacer</Text>
+        <View style={styles.viewToggleGroup}>
+          <Pressable 
+            style={[styles.viewToggleBtn, viewMode === 'list' && styles.viewToggleBtnActive]}
+            onPress={() => setViewMode('list')}
+          >
+            <Ionicons name="list" size={20} color={viewMode === 'list' ? "#496943" : "#9CA3AF"} />
           </Pressable>
-        )}
+          <Pressable 
+            style={[styles.viewToggleBtn, viewMode === 'grid' && styles.viewToggleBtnActive]}
+            onPress={() => setViewMode('grid')}
+          >
+            <Ionicons name="grid" size={18} color={viewMode === 'grid' ? "#496943" : "#9CA3AF"} />
+          </Pressable>
+        </View>
+      </View>
 
-        {/* Result count */}
-        <Text style={styles.resultCount}>
-          {isLoading ? 'Recherche...' : `${recipes.length} recette${recipes.length !== 1 ? 's' : ''}`}
+      <Text style={styles.resultCount}>
+        {isLoading ? 'Recherche...' : `${recipes.length} recette${recipes.length !== 1 ? 's' : ''}`}
+      </Text>
+    </View>
+  ), [search, activeFilterCount, viewMode, recipes.length, isLoading]);
+
+  // --- PIED DE PAGE (Pagination Dynamique) ---
+  const renderPagination = () => {
+    if (isLoading || recipes.length === 0) return null;
+
+    return (
+      <View style={styles.paginationWrapper}>
+        {totalPages > 1 && (
+          <View style={styles.paginationControls}>
+            <Pressable 
+              style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]} 
+              onPress={handlePrevPage}
+              disabled={currentPage === 1}
+            >
+              <Ionicons name="chevron-back" size={20} color={currentPage === 1 ? '#9CA3AF' : '#496943'} />
+            </Pressable>
+
+            <Text style={styles.pageText}>
+              Page {currentPage} sur {totalPages}
+            </Text>
+
+            <Pressable 
+              style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]} 
+              onPress={handleNextPage}
+              disabled={currentPage === totalPages}
+            >
+              <Ionicons name="chevron-forward" size={20} color={currentPage === totalPages ? '#9CA3AF' : '#496943'} />
+            </Pressable>
+          </View>
+        )}
+        
+        <Text style={styles.totalCountFooter}>
+          {recipes.length} recette{recipes.length > 1 ? 's' : ''} au total
         </Text>
       </View>
-    ),
-    [
-      search,
-      showDietBadge,
-      dietLabel,
-      onlyFromStock,
-      timeFilter,
-      lunchType,
-      lunchTypeOptions,
-      category,
-      categoryOptions,
-      area,
-      areaOptions,
-      activeFilterCount,
-      clearFilters,
-      isLoading,
-      recipes.length,
-    ],
-  );
-
-  const ListEmpty = useMemo(() => {
-    if (isLoading) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color="#4A6332" />
-          <Text style={styles.emptyText}>Chargement des recettes...</Text>
-        </View>
-      );
-    }
-    if (error) {
-      return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#E55353" />
-          <Text style={styles.emptyTitle}>Erreur</Text>
-          <Text style={styles.emptyText}>{error.message}</Text>
-          <Pressable style={styles.retryBtn} onPress={refetch}>
-            <Text style={styles.retryText}>Réessayer</Text>
-          </Pressable>
-        </View>
-      );
-    }
-    return (
-      <View style={styles.emptyContainer}>
-        <MaterialCommunityIcons name="food-off" size={48} color="#9CA3AF" />
-        <Text style={styles.emptyTitle}>Aucune recette trouvée</Text>
-        <Text style={styles.emptyText}>Essaie de modifier tes filtres ou ta recherche.</Text>
-        {activeFilterCount > 0 && (
-          <Pressable style={styles.retryBtn} onPress={clearFilters}>
-            <Text style={styles.retryText}>Effacer les filtres</Text>
-          </Pressable>
-        )}
-      </View>
     );
-  }, [isLoading, error, refetch, activeFilterCount, clearFilters]);
+  };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top }]}>
+    <View style={[styles.screen, { paddingTop: Math.max(0, insets.top - 15) }]}>
+      
+      {/* L'EN-TÊTE FIXE POUR QUE LE REFRESH NE S'APPLIQUE QU'AUX CARTES */}
+      {Header}
+
       <FlatList
-        data={recipes}
+        ref={flatListRef}
+        key={viewMode}
+        data={displayedRecipes}
         renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
+        keyExtractor={(item) => String(item.id)}
+        ListFooterComponent={renderPagination}
+        numColumns={viewMode === 'grid' ? 2 : 1}
         contentContainerStyle={styles.listContent}
+        columnWrapperStyle={viewMode === 'grid' ? styles.row : undefined}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing} 
+            onRefresh={onRefresh} 
+            colors={['#496943']} 
+            tintColor={'#496943'} 
+          />
+        }
       />
+
+      {/* BOTTOM SHEET MODAL (Sans flou) */}
+      <Modal visible={isFilterModalOpen} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsFilterModalOpen(false)} />
+          
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Filtres avancés</Text>
+
+            <FlatList
+              data={[]}
+              renderItem={() => null}
+              showsVerticalScrollIndicator={false}
+              ListHeaderComponent={
+                <View style={styles.filtersContainer}>
+                  <Pressable style={styles.stockToggle} onPress={() => setOnlyFromStock(!onlyFromStock)}>
+                    <View style={styles.stockToggleLeft}>
+                      <Ionicons name="cart-outline" size={24} color={onlyFromStock ? '#496943' : '#6B7280'} />
+                      <Text style={[styles.stockToggleText, onlyFromStock && styles.stockToggleTextActive]}>
+                        À partir de ce que j'ai
+                      </Text>
+                    </View>
+                    <Switch
+                      value={onlyFromStock}
+                      onValueChange={setOnlyFromStock}
+                      trackColor={{ false: '#E5E7EB', true: '#A8C699' }}
+                      thumbColor={onlyFromStock ? '#496943' : '#FFFFFF'}
+                    />
+                  </Pressable>
+
+                  <FilterChips label="Temps de préparation" options={TIME_OPTIONS} selected={timeFilter} onSelect={(key) => setTimeFilter(key as TimeFilter)} />
+                  <FilterChips label="Type de repas" options={lunchTypeOptions} selected={lunchType} onSelect={setLunchType} />
+                  <FilterChips label="Catégorie" options={categoryOptions} selected={category} onSelect={setCategory} />
+                  <FilterChips label="Origine" options={areaOptions} selected={area} onSelect={setArea} />
+                </View>
+              }
+            />
+
+            <View style={styles.sheetFooter}>
+              <Pressable style={styles.clearBtn} onPress={clearFilters}>
+                <Text style={styles.clearBtnText}>Réinitialiser</Text>
+              </Pressable>
+              <Pressable style={styles.applyBtn} onPress={() => setIsFilterModalOpen(false)}>
+                <Text style={styles.applyBtnText}>Voir les résultats</Text>
+              </Pressable>
+            </View>
+
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Styles
-// ---------------------------------------------------------------------------
-
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F7F3EA',
-  },
-  listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  headerContainer: {
-    gap: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-  },
-  subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginTop: -6,
-  },
-  dietBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: '#EDF5E4',
-  },
-  dietBadgeText: {
-    fontSize: 12,
-    color: '#4A6332',
-    fontWeight: '500',
-  },
-  stockToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  stockToggleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  stockToggleText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  stockToggleTextActive: {
-    color: '#4A6332',
-  },
-  clearRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  clearText: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  clearBtn: {
-    fontSize: 13,
-    color: '#E55353',
-    fontWeight: '600',
-  },
-  resultCount: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  cardWrapper: {
-    marginBottom: 10,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 48,
-    gap: 10,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
-  retryBtn: {
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#4A6332',
-    borderRadius: 10,
-  },
-  retryText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
+  screen: { flex: 1, backgroundColor: '#F7F3EA' },
+  listContent: { paddingHorizontal: 16, paddingBottom: 40 },
+  headerContainer: { gap: 14, paddingTop: 12, paddingBottom: 16, paddingHorizontal: 16 },
+  
+  headerTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  mascot: { width: 65, height: 65 },
+  headerTextContainer: { flex: 1, justifyContent: 'center' },
+  title: { fontSize: 30, fontWeight: '800', color: '#1F2937' },
+  subtitle: { fontSize: 16, color: '#6B7280', marginTop: -2 },
+
+  tinderCta: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF0F4', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: '#FFE0E8', marginTop: 6 },
+  tinderIconBg: { backgroundColor: '#FFFFFF', padding: 8, borderRadius: 12, marginRight: 14, shadowColor: '#FF5864', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 3, elevation: 2 },
+  tinderCtaText: { flex: 1, fontSize: 17, fontWeight: '700', color: '#FF5864' },
+  tinderChevron: { opacity: 0.7 },
+
+  toolsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  filterBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#FFFFFF', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  filterBtnActive: { backgroundColor: '#496943', borderColor: '#496943' },
+  filterBtnText: { fontSize: 15, fontWeight: '600', color: '#496943' },
+  
+  viewToggleGroup: { flexDirection: 'row', backgroundColor: '#EBE9DF', borderRadius: 12, padding: 4 },
+  viewToggleBtn: { padding: 8, borderRadius: 8 },
+  viewToggleBtnActive: { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  
+  resultCount: { fontSize: 14, color: '#9CA3AF', fontWeight: '500', marginTop: 4, marginLeft: 2 },
+  
+  row: { justifyContent: 'space-between' },
+  listItemWrapper: { marginBottom: 14 },
+  gridItemWrapper: { width: '48%', marginBottom: 16 },
+
+  // --- Styles Pagination ---
+  paginationWrapper: { alignItems: 'center', marginVertical: 20 },
+  paginationControls: { flexDirection: 'row', alignItems: 'center', gap: 20, marginBottom: 12 },
+  pageBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  pageBtnDisabled: { backgroundColor: '#E5E7EB', shadowOpacity: 0, elevation: 0 },
+  pageText: { fontSize: 16, fontWeight: '600', color: '#496943' },
+  totalCountFooter: { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
+
+  // Bottom Sheet Modal
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.4)' },
+  bottomSheet: { backgroundColor: '#F7F3EA', borderTopLeftRadius: 30, borderTopRightRadius: 30, height: '82%', padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24 },
+  sheetHandle: { width: 45, height: 5, backgroundColor: '#D1D5DB', borderRadius: 3, alignSelf: 'center', marginBottom: 20 },
+  sheetTitle: { fontSize: 24, fontWeight: 'bold', color: '#1F2937', marginBottom: 24 },
+  filtersContainer: { gap: 24, paddingBottom: 20 },
+  
+  stockToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1, borderColor: '#EAEAEA', marginBottom: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+  stockToggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stockToggleText: { fontSize: 16, color: '#4B5563', fontWeight: '600' },
+  stockToggleTextActive: { color: '#496943' },
+
+  sheetFooter: { flexDirection: 'row', gap: 16, marginTop: 10, paddingTop: 20, borderTopWidth: 1, borderColor: '#EAEAEA' },
+  clearBtn: { flex: 1, paddingVertical: 18, borderRadius: 20, backgroundColor: '#EAEAEA', alignItems: 'center' },
+  clearBtnText: { color: '#4B5563', fontWeight: 'bold', fontSize: 16 },
+  applyBtn: { flex: 1.5, paddingVertical: 18, borderRadius: 20, backgroundColor: '#496943', alignItems: 'center' },
+  applyBtnText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 },
 });

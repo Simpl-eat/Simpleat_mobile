@@ -126,6 +126,7 @@ type UseRecipePreferencesResult = {
   isLoading: boolean;
   error: Error | null;
   togglePreference: (recipeId: number, like: boolean) => Promise<void>;
+  reload: () => Promise<void>;
 };
 
 export function useRecipePreferences(): UseRecipePreferencesResult {
@@ -152,6 +153,7 @@ export function useRecipePreferences(): UseRecipePreferencesResult {
     } finally {
       setIsLoading(false);
     }
+    
   }, []);
 
   useEffect(() => {
@@ -213,5 +215,5 @@ export function useRecipePreferences(): UseRecipePreferencesResult {
     }
   }, []);
 
-  return { preferences, isLoading, error, togglePreference };
+  return { preferences, isLoading, error, togglePreference, reload: fetchPreferences };
 }
