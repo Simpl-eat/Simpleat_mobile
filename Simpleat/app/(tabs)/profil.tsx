@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
+  ImageBackground,
   Modal,
   Pressable,
   ScrollView,
@@ -8,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -145,6 +148,7 @@ function EnumSelectField({
 }
 
 export default function ProfilScreen() {
+  const insets = useSafeAreaInsets();
   const {
     profile,
     isLoading,
@@ -266,312 +270,331 @@ export default function ProfilScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <ThemedText type="title" style={styles.pageTitle}>
-            Mon profil
-          </ThemedText>
-        </View>
-
-        <View style={styles.profileCard}>
-          <View style={styles.avatarPlaceholder}>
-            <ThemedText style={styles.avatarText}>
-              {displayName
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((word) => word[0].toUpperCase())
-                .join('') || 'A'}
-            </ThemedText>
-          </View>
-
-          <View style={styles.profileInfo}>
-            <ThemedText type="subtitle" style={styles.profileName}>
-              {displayName}
-            </ThemedText>
-          </View>
-        </View>
-
-        {signOutError ? (
-          <View style={styles.errorBox}>
-            <ThemedText style={styles.errorText}>{signOutError}</ThemedText>
-          </View>
-        ) : null}
-
-        <Pressable
-          style={[styles.signOutButton, signOutLoading && styles.saveButtonDisabled]}
-          onPress={handleSignOut}
-          disabled={signOutLoading}
+      <ImageBackground
+        source={require('@/assets/images/fond_picto_general.png')}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+      >
+        <ScrollView
+          contentContainerStyle={[
+            styles.container,
+            { paddingTop: Math.max(0, insets.top - 4) },
+          ]}
+          showsVerticalScrollIndicator={false}
         >
-          {signOutLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <ThemedText style={styles.saveButtonText}>Déconnexion</ThemedText>
-          )}
-        </Pressable>
-
-        <View style={styles.divider} />
-
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Mon régime alimentaire
-          </ThemedText>
-          <View style={styles.pillRow}>
-            <Pill label={dietLabel} variant="diet" />
-            {preferredItems.map((item) => (
-              <Pill key={`like-${item}`} label={item} variant="like" />
-            ))}
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <Image
+                source={require('@/assets/images/broco_waving.png')}
+                style={styles.mascot}
+                resizeMode="contain"
+              />
+              <ThemedText type="title" style={styles.pageTitle}>
+                Mon profil
+              </ThemedText>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Mes allergies
-          </ThemedText>
-          {allergyItems.length > 0 ? (
+          <View style={styles.profileCard}>
+            <View style={styles.avatarPlaceholder}>
+              <ThemedText style={styles.avatarText}>
+                {displayName
+                  .split(' ')
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((word) => word[0].toUpperCase())
+                  .join('') || 'A'}
+              </ThemedText>
+            </View>
+
+            <View style={styles.profileInfo}>
+              <ThemedText type="subtitle" style={styles.profileName}>
+                {displayName}
+              </ThemedText>
+            </View>
+          </View>
+
+          {signOutError ? (
+            <View style={styles.errorBox}>
+              <ThemedText style={styles.errorText}>{signOutError}</ThemedText>
+            </View>
+          ) : null}
+
+          <Pressable
+            style={[styles.signOutButton, signOutLoading && styles.saveButtonDisabled]}
+            onPress={handleSignOut}
+            disabled={signOutLoading}
+          >
+            {signOutLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <ThemedText style={styles.saveButtonText}>Déconnexion</ThemedText>
+            )}
+          </Pressable>
+
+          <View style={styles.divider} />
+
+          <View style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Mon régime alimentaire
+            </ThemedText>
             <View style={styles.pillRow}>
-              {allergyItems.map((item) => (
-                <Pill key={`allergy-${item}`} label={item} variant="allergy" />
+              <Pill label={dietLabel} variant="diet" />
+              {preferredItems.map((item) => (
+                <Pill key={`like-${item}`} label={item} variant="like" />
               ))}
             </View>
-          ) : (
-            <ThemedText style={styles.emptyText}>
-              Aucune allergie renseignée.
+          </View>
+
+          <View style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Mes allergies
             </ThemedText>
-          )}
-        </View>
-
-        <Pressable
-          style={styles.editToggle}
-          onPress={() => setEditing((current) => !current)}
-        >
-          <ThemedText style={styles.editToggleText}>
-            Modifier mes informations
-          </ThemedText>
-          <ThemedText style={styles.editToggleIcon}>
-            {editing ? '▲' : '▼'}
-          </ThemedText>
-        </Pressable>
-
-        {editing ? (
-          <View style={styles.editPanel}>
-            <View style={styles.inputBlock}>
-              <ThemedText style={styles.inputLabel}>Pseudo</ThemedText>
-              <TextInput
-                value={form.pseudo}
-                onChangeText={(value) => setField('pseudo', value)}
-                placeholder="Pseudo"
-                style={styles.input}
-                editable={!isSaving}
-              />
-            </View>
-
-            {dietGoalOptionsLoading ? (
-              <View style={styles.selectLoadingRow}>
-                <ActivityIndicator color="#40502F" />
-                <ThemedText style={styles.selectLoadingText}>
-                  Chargement des régimes et objectifs…
-                </ThemedText>
+            {allergyItems.length > 0 ? (
+              <View style={styles.pillRow}>
+                {allergyItems.map((item) => (
+                  <Pill key={`allergy-${item}`} label={item} variant="allergy" />
+                ))}
               </View>
-            ) : null}
-
-            {dietGoalOptionsError ? (
-              <View style={styles.errorBox}>
-                <ThemedText style={styles.errorText}>
-                  Impossible de charger les options : {dietGoalOptionsError}
-                </ThemedText>
-              </View>
-            ) : null}
-
-            <EnumSelectField
-              label="Régime"
-              value={form.diet}
-              options={dietOptions}
-              onChange={(v) => setField('diet', v)}
-              disabled={isSaving || dietGoalOptionsLoading}
-              placeholder="Choisir un régime"
-            />
-
-            <EnumSelectField
-              label="Objectif"
-              value={form.goal}
-              options={goalOptions}
-              onChange={(v) => setField('goal', v)}
-              disabled={isSaving || dietGoalOptionsLoading}
-              placeholder="Choisir un objectif"
-            />
-
-            <View style={styles.inputBlock}>
-              <ThemedText style={styles.inputLabel}>Allergies</ThemedText>
-              <TextInput
-                value={form.allergy}
-                onChangeText={(value) => setField('allergy', value)}
-                placeholder="Arachides, Gluten…"
-                style={styles.input}
-                editable={!isSaving}
-              />
-            </View>
-
-            <View style={styles.inputBlock}>
-              <ThemedText style={styles.inputLabel}>Envies</ThemedText>
-              <TextInput
-                value={form.desire}
-                onChangeText={(value) => setField('desire', value)}
-                placeholder="Gagner de la masse musculaire…"
-                style={[styles.input, styles.multilineInput]}
-                editable={!isSaving}
-                multiline
-              />
-            </View>
-
-            <View style={styles.passwordSection}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                Modifier mon email
+            ) : (
+              <ThemedText style={styles.emptyText}>
+                Aucune allergie renseignée.
               </ThemedText>
-
-              <View style={styles.inputBlock}>
-                <ThemedText style={styles.inputLabel}>Nouvel email</ThemedText>
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="nouvel@email.com"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={styles.input}
-                  editable={!emailSaving}
-                />
-              </View>
-
-              <View style={styles.inputBlock}>
-                <ThemedText style={styles.inputLabel}>Confirmer votre email</ThemedText>
-                <TextInput
-                  value={emailConfirm}
-                  onChangeText={setEmailConfirm}
-                  placeholder="Confirmer l'email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={styles.input}
-                  editable={!emailSaving}
-                />
-              </View>
-
-              {(emailError || emailMessage) && (
-                <View style={[styles.errorBox, !emailError && styles.successBox]}>
-                  <ThemedText style={[styles.errorText, !emailError && styles.successText]}>
-                    {emailError ?? emailMessage}
-                  </ThemedText>
-                </View>
-              )}
-
-              <Pressable
-                style={[
-                  styles.saveButton,
-                  emailSaving && styles.saveButtonDisabled,
-                ]}
-                onPress={handleChangeEmail}
-                disabled={emailSaving}
-              >
-                {emailSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <ThemedText style={styles.saveButtonText}>
-                    Mettre à jour mon email
-                  </ThemedText>
-                )}
-              </Pressable>
-            </View>
-
-            <View style={styles.passwordSection}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                Modifier mon mot de passe
-              </ThemedText>
-
-              <View style={styles.inputBlock}>
-                <ThemedText style={styles.inputLabel}>Nouveau mot de passe</ThemedText>
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="••••••••"
-                  secureTextEntry
-                  style={styles.input}
-                  editable={!passwordSaving}
-                />
-              </View>
-
-              <View style={styles.inputBlock}>
-                <ThemedText style={styles.inputLabel}>Confirmer le mot de passe</ThemedText>
-                <TextInput
-                  value={passwordConfirm}
-                  onChangeText={setPasswordConfirm}
-                  placeholder="••••••••"
-                  secureTextEntry
-                  style={styles.input}
-                  editable={!passwordSaving}
-                />
-              </View>
-
-              {(passwordError || passwordMessage) && (
-                <View style={[styles.errorBox, !passwordError && styles.successBox]}>
-                  <ThemedText style={[styles.errorText, !passwordError && styles.successText]}>
-                    {passwordError ?? passwordMessage}
-                  </ThemedText>
-                </View>
-              )}
-
-              <Pressable
-                style={[
-                  styles.saveButton,
-                  passwordSaving && styles.saveButtonDisabled,
-                ]}
-                onPress={handleChangePassword}
-                disabled={passwordSaving}
-              >
-                {passwordSaving ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <ThemedText style={styles.saveButtonText}>
-                    Mettre à jour le mot de passe
-                  </ThemedText>
-                )}
-              </Pressable>
-            </View>
-
-            {(error || saveError || localError) && (
-              <View style={styles.errorBox}>
-                <ThemedText style={styles.errorText}>
-                  {error ?? saveError ?? localError}
-                </ThemedText>
-              </View>
             )}
+          </View>
 
-            <Pressable
-              style={[
-                styles.saveButton,
-                (isLoading ||
+          <Pressable
+            style={styles.editToggle}
+            onPress={() => setEditing((current) => !current)}
+          >
+            <ThemedText style={styles.editToggleText}>
+              Modifier mes informations
+            </ThemedText>
+            <ThemedText style={styles.editToggleIcon}>
+              {editing ? '▲' : '▼'}
+            </ThemedText>
+          </Pressable>
+
+          {editing ? (
+            <View style={styles.editPanel}>
+              <View style={styles.inputBlock}>
+                <ThemedText style={styles.inputLabel}>Pseudo</ThemedText>
+                <TextInput
+                  value={form.pseudo}
+                  onChangeText={(value) => setField('pseudo', value)}
+                  placeholder="Pseudo"
+                  style={styles.input}
+                  editable={!isSaving}
+                />
+              </View>
+
+              {dietGoalOptionsLoading ? (
+                <View style={styles.selectLoadingRow}>
+                  <ActivityIndicator color="#496943" />
+                  <ThemedText style={styles.selectLoadingText}>
+                    Chargement des régimes et objectifs…
+                  </ThemedText>
+                </View>
+              ) : null}
+
+              {dietGoalOptionsError ? (
+                <View style={styles.errorBox}>
+                  <ThemedText style={styles.errorText}>
+                    Impossible de charger les options : {dietGoalOptionsError}
+                  </ThemedText>
+                </View>
+              ) : null}
+
+              <EnumSelectField
+                label="Régime"
+                value={form.diet}
+                options={dietOptions}
+                onChange={(v) => setField('diet', v)}
+                disabled={isSaving || dietGoalOptionsLoading}
+                placeholder="Choisir un régime"
+              />
+
+              <EnumSelectField
+                label="Objectif"
+                value={form.goal}
+                options={goalOptions}
+                onChange={(v) => setField('goal', v)}
+                disabled={isSaving || dietGoalOptionsLoading}
+                placeholder="Choisir un objectif"
+              />
+
+              <View style={styles.inputBlock}>
+                <ThemedText style={styles.inputLabel}>Allergies</ThemedText>
+                <TextInput
+                  value={form.allergy}
+                  onChangeText={(value) => setField('allergy', value)}
+                  placeholder="Arachides, Gluten…"
+                  style={styles.input}
+                  editable={!isSaving}
+                />
+              </View>
+
+              <View style={styles.inputBlock}>
+                <ThemedText style={styles.inputLabel}>Envies</ThemedText>
+                <TextInput
+                  value={form.desire}
+                  onChangeText={(value) => setField('desire', value)}
+                  placeholder="Gagner de la masse musculaire…"
+                  style={[styles.input, styles.multilineInput]}
+                  editable={!isSaving}
+                  multiline
+                />
+              </View>
+
+              <View style={styles.passwordSection}>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>
+                  Modifier mon email
+                </ThemedText>
+
+                <View style={styles.inputBlock}>
+                  <ThemedText style={styles.inputLabel}>Nouvel email</ThemedText>
+                  <TextInput
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="nouvel@email.com"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                    editable={!emailSaving}
+                  />
+                </View>
+
+                <View style={styles.inputBlock}>
+                  <ThemedText style={styles.inputLabel}>Confirmer votre email</ThemedText>
+                  <TextInput
+                    value={emailConfirm}
+                    onChangeText={setEmailConfirm}
+                    placeholder="Confirmer l'email"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.input}
+                    editable={!emailSaving}
+                  />
+                </View>
+
+                {(emailError || emailMessage) && (
+                  <View style={[styles.errorBox, !emailError && styles.successBox]}>
+                    <ThemedText style={[styles.errorText, !emailError && styles.successText]}>
+                      {emailError ?? emailMessage}
+                    </ThemedText>
+                  </View>
+                )}
+
+                <Pressable
+                  style={[
+                    styles.saveButton,
+                    emailSaving && styles.saveButtonDisabled,
+                  ]}
+                  onPress={handleChangeEmail}
+                  disabled={emailSaving}
+                >
+                  {emailSaving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <ThemedText style={styles.saveButtonText}>
+                      Mettre à jour mon email
+                    </ThemedText>
+                  )}
+                </Pressable>
+              </View>
+
+              <View style={styles.passwordSection}>
+                <ThemedText type="subtitle" style={styles.sectionTitle}>
+                  Modifier mon mot de passe
+                </ThemedText>
+
+                <View style={styles.inputBlock}>
+                  <ThemedText style={styles.inputLabel}>Nouveau mot de passe</ThemedText>
+                  <TextInput
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="••••••••"
+                    secureTextEntry
+                    style={styles.input}
+                    editable={!passwordSaving}
+                  />
+                </View>
+
+                <View style={styles.inputBlock}>
+                  <ThemedText style={styles.inputLabel}>Confirmer le mot de passe</ThemedText>
+                  <TextInput
+                    value={passwordConfirm}
+                    onChangeText={setPasswordConfirm}
+                    placeholder="••••••••"
+                    secureTextEntry
+                    style={styles.input}
+                    editable={!passwordSaving}
+                  />
+                </View>
+
+                {(passwordError || passwordMessage) && (
+                  <View style={[styles.errorBox, !passwordError && styles.successBox]}>
+                    <ThemedText style={[styles.errorText, !passwordError && styles.successText]}>
+                      {passwordError ?? passwordMessage}
+                    </ThemedText>
+                  </View>
+                )}
+
+                <Pressable
+                  style={[
+                    styles.saveButton,
+                    passwordSaving && styles.saveButtonDisabled,
+                  ]}
+                  onPress={handleChangePassword}
+                  disabled={passwordSaving}
+                >
+                  {passwordSaving ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <ThemedText style={styles.saveButtonText}>
+                      Mettre à jour le mot de passe
+                    </ThemedText>
+                  )}
+                </Pressable>
+              </View>
+
+              {(error || saveError || localError) && (
+                <View style={styles.errorBox}>
+                  <ThemedText style={styles.errorText}>
+                    {error ?? saveError ?? localError}
+                  </ThemedText>
+                </View>
+              )}
+
+              <Pressable
+                style={[
+                  styles.saveButton,
+                  (isLoading ||
+                    isSaving ||
+                    dietGoalOptionsLoading ||
+                    !dietOptions.length ||
+                    !goalOptions.length) &&
+                    styles.saveButtonDisabled,
+                ]}
+                onPress={handleSave}
+                disabled={
+                  isLoading ||
                   isSaving ||
                   dietGoalOptionsLoading ||
                   !dietOptions.length ||
-                  !goalOptions.length) &&
-                  styles.saveButtonDisabled,
-              ]}
-              onPress={handleSave}
-              disabled={
-                isLoading ||
-                isSaving ||
-                dietGoalOptionsLoading ||
-                !dietOptions.length ||
-                !goalOptions.length
-              }
-            >
-              {isSaving ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <ThemedText style={styles.saveButtonText}>Sauvegarder</ThemedText>
-              )}
-            </Pressable>
-          </View>
-        ) : null}
-      </ScrollView>
+                  !goalOptions.length
+                }
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <ThemedText style={styles.saveButtonText}>Sauvegarder</ThemedText>
+                )}
+              </Pressable>
+            </View>
+          ) : null}
+        </ScrollView>
+      </ImageBackground>
     </ThemedView>
   );
 }
@@ -579,38 +602,57 @@ export default function ProfilScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#F8F6F0',
+    backgroundColor: '#F7F3EA',
+  },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 0.22,
+    resizeMode: 'cover',
   },
   container: {
-    padding: 24,
-    gap: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 36,
+    gap: 18,
   },
   header: {
-    paddingTop: 8,
+    marginBottom: 2,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mascot: {
+    width: 64,
+    height: 64,
   },
   pageTitle: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: '#3F533B',
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#1F2937',
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
-    padding: 20,
+    padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   avatarPlaceholder: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#EAEDE6',
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#E9ECE4',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -625,7 +667,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#40502F',
+    color: '#1F2937',
   },
   profileSubtitle: {
     marginTop: 4,
@@ -634,16 +676,16 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#D9E2D1',
-    marginVertical: 16,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 10,
   },
   section: {
     gap: 14,
   },
   sectionTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#40502F',
+    color: '#496943',
   },
   pillRow: {
     flexDirection: 'row',
@@ -661,7 +703,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   emptyText: {
-    color: '#5B6A51',
+    color: '#6B7280',
     fontSize: 15,
   },
   metricPill: {
@@ -679,50 +721,54 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   editToggle: {
-    backgroundColor: '#F4F4F3',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     paddingVertical: 18,
     paddingHorizontal: 18,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   editToggleText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#3F533B',
+    color: '#374151',
   },
   editToggleIcon: {
     fontSize: 16,
-    color: '#3F533B',
+    color: '#374151',
   },
   editPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     padding: 20,
     gap: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   inputBlock: {
     gap: 8,
   },
   inputLabel: {
     fontSize: 14,
-    color: '#5B6A51',
+    color: '#6B7280',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#E3E7DE',
+    borderColor: '#E5E7EB',
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#1F2A18',
-    backgroundColor: '#F8F8F4',
+    color: '#111111',
+    backgroundColor: '#FFFFFF',
   },
   selectTrigger: {
     flexDirection: 'row',
@@ -736,14 +782,14 @@ const styles = StyleSheet.create({
   selectTriggerText: {
     flex: 1,
     fontSize: 15,
-    color: '#1F2A18',
+    color: '#111111',
   },
   selectPlaceholder: {
-    color: '#8A9584',
+    color: '#9CA3AF',
   },
   selectChevron: {
     fontSize: 12,
-    color: '#5B6A51',
+    color: '#6B7280',
   },
   selectLoadingRow: {
     flexDirection: 'row',
@@ -754,13 +800,13 @@ const styles = StyleSheet.create({
   selectLoadingText: {
     flex: 1,
     fontSize: 14,
-    color: '#5B6A51',
+    color: '#6B7280',
   },
   modalRoot: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
-    backgroundColor: 'rgba(31, 42, 24, 0.45)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -780,7 +826,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     paddingHorizontal: 12,
     paddingBottom: 12,
-    color: '#40502F',
+    color: '#496943',
   },
   modalScroll: {
     flexGrow: 0,
@@ -791,15 +837,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   modalOptionSelected: {
-    backgroundColor: '#EAEDE6',
+    backgroundColor: '#EBE9DF',
   },
   modalOptionText: {
     fontSize: 16,
-    color: '#1F2A18',
+    color: '#111111',
   },
   modalOptionTextSelected: {
     fontWeight: '700',
-    color: '#40502F',
+    color: '#496943',
   },
   multilineInput: {
     minHeight: 96,
@@ -815,7 +861,7 @@ const styles = StyleSheet.create({
     color: '#1E5F39',
   },
   saveButton: {
-    backgroundColor: '#40502F',
+    backgroundColor: '#496943',
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
