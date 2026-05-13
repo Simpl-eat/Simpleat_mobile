@@ -281,6 +281,8 @@ export default function ProfilScreen() {
             { paddingTop: Math.max(0, insets.top - 4) },
           ]}
           showsVerticalScrollIndicator={false}
+          automaticallyAdjustKeyboardInsets={true}
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
             <View style={styles.headerTop}>

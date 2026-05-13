@@ -69,7 +69,11 @@ export default function OnboardingStep2Screen() {
   return (
       <View style={styles.screen}>
         <ImageBackground source={require('../../assets/images/fond_picto_all.png')} style={styles.backgroundImage} imageStyle={{ opacity: 0.08 }}>
-          <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <KeyboardAvoidingView
+              style={styles.container}
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
+          >
             <View style={styles.card}>
               <View style={styles.iconHeader}>
                 <View style={styles.iconCircle}>
