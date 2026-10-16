@@ -40,10 +40,6 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
               />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                  name="modal"
-                  options={{ presentation: 'modal', title: 'Modal' }}
-              />
               <Stack.Screen name="scan" options={{ headerShown: false, presentation: 'modal' }} />
             </Stack>
           </AuthRedirect>

@@ -19,8 +19,6 @@ export default function TabLayout() {
             <Tabs.Screen name="suggestions" options={{ title: 'Suggestions' }} />
             <Tabs.Screen name="simpl-ia" options={{ title: "Simpl'IA" }} />
             <Tabs.Screen name="profil" options={{ title: 'Mon profil' }} />
-            <Tabs.Screen name="home" options={{ href: null }} />
-            <Tabs.Screen name="explore" options={{ href: null }} />
             <Tabs.Screen name="(protected)" options={{ href: null }} />
         </Tabs>
     );
