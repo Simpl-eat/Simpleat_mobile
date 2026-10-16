@@ -60,7 +60,7 @@ export default function ScanScreen() {
             const words = searchSource
                 .replace(/[^a-zà-ÿ]/g, ' ')
                 .split(' ')
-                .filter(w => w.length > 2 && !stopWords.includes(w));
+                .filter((w: string) => w.length > 2 && !stopWords.includes(w));
 
             const mainWord = words[0];
             console.log("Mot-clé retenu pour recherche Supabase:", mainWord);

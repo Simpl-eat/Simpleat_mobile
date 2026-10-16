@@ -10,7 +10,7 @@ export default function OnboardingLayout() {
                     headerStyle: { backgroundColor: '#F7F3EA' },
                     headerTintColor: '#496943',
                     headerShadowVisible: false,
-                    headerBackTitleVisible: false,
+                    headerBackButtonDisplayMode: 'minimal',
                     contentStyle: { backgroundColor: '#F7F3EA' }
                 }}>
                 <Stack.Screen name="step-1" options={{ title: 'Étape 1/4' }} />
