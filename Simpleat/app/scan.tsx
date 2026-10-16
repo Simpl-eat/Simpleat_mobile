@@ -38,7 +38,6 @@ export default function ScanScreen() {
         setIsProcessing(true);
 
         try {
-            console.log("--- Début Scan Barcode:", data);
             const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${data}.json`);
             const offData = await response.json();
 
@@ -63,7 +62,6 @@ export default function ScanScreen() {
                 .filter((w: string) => w.length > 2 && !stopWords.includes(w));
 
             const mainWord = words[0];
-            console.log("Mot-clé retenu pour recherche Supabase:", mainWord);
 
             if (mainWord) {
                 const { data: dbItems, error } = await supabase
@@ -120,14 +118,12 @@ export default function ScanScreen() {
 
             let error;
             if (existing) {
-                console.log("Mise à jour stock existant...");
                 const { error: err } = await supabase
                     .from('userStock')
                     .update({ quantity: existing.quantity + qty })
                     .eq('id', existing.id);
                 error = err;
             } else {
-                console.log("Création nouvelle ligne de stock...");
                 const { error: err } = await supabase.from('userStock').insert({
                     user_id: user.id,
                     ingredient_id: ingId,
